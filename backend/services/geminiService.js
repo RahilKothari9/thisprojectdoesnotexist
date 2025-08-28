@@ -177,12 +177,13 @@ TECHNICAL GUIDELINES (CRITICAL FOR RENDERING):
 1. ALWAYS respond with ONLY valid HTML - no explanations, no markdown, no extra text
 2. Include ALL CSS in <style> tags within the <head> section
 3. Start every response with <!DOCTYPE html>
-4. Use proper HTML5 structure with semantic elements
-5. Make pages fully responsive and modern
-6. Include realistic content - no placeholders or Lorem ipsum
-7. Create logical navigation between pages
-8. Ensure cross-browser compatibility
-9. CRITICAL: Add navigation JavaScript to handle link clicks properly
+4. Add proper UTF-8 encoding: <meta charset="UTF-8">
+5. Use proper HTML5 structure with semantic elements
+6. Make pages fully responsive and modern
+7. Include realistic content - no placeholders or Lorem ipsum
+8. Create logical navigation between pages
+9. Ensure cross-browser compatibility
+10. CRITICAL: Add navigation JavaScript to handle link clicks properly
 
 NAVIGATION REQUIREMENTS:
 - All internal links must use relative paths (e.g., "/about", "/features")
@@ -208,7 +209,8 @@ document.addEventListener('click', function(e) {
 DESIGN CONSTRAINTS:
 - NO images, logos, photos, or external media files
 - NO <img> tags or background-image CSS properties
-- Use CSS shapes, gradients, and Unicode symbols instead
+- Use CSS shapes, gradients, and Unicode symbols/emojis instead
+- Ensure proper UTF-8 encoding for emoji and special characters
 - Create visual interest with typography, spacing, and CSS effects
 - Build cohesive brand identity through consistent styling only
 
@@ -256,12 +258,13 @@ CRITICAL RENDERING REQUIREMENTS:
 1. Respond with ONLY the complete HTML document - no explanations
 2. Start with <!DOCTYPE html>
 3. Include ALL CSS in <style> tags within <head>
-4. Create realistic, professional content (no placeholders)
-5. Make it fully responsive and modern
-6. Include proper navigation to other logical pages
-7. Ensure the HTML is valid and will render correctly
-8. NO <img> tags or background-image properties - use CSS-only visuals
-9. CRITICAL: Add navigation JavaScript before closing </body> tag
+4. Add proper UTF-8 meta charset: <meta charset="UTF-8">
+5. Create realistic, professional content (no placeholders)
+6. Make it fully responsive and modern
+7. Include proper navigation to other logical pages
+8. Ensure the HTML is valid and will render correctly
+9. NO <img> tags or background-image properties - use CSS-only visuals
+10. CRITICAL: Add navigation JavaScript before closing </body> tag
 
 NAVIGATION JAVASCRIPT (MUST INCLUDE):
 Add this exact script before </body>:

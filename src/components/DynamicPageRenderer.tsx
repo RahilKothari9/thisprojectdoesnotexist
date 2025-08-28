@@ -9,6 +9,7 @@ interface ProjectConfig {
 
 interface DynamicPageRendererProps {
   projectConfig: ProjectConfig;
+  onReset?: () => void;
 }
 
 interface PageCache {
@@ -23,7 +24,7 @@ interface SessionData {
   sessionStartTime: Date;
 }
 
-export function DynamicPageRenderer({ projectConfig }: DynamicPageRendererProps) {
+export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRendererProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [pageCache, setPageCache] = useState<PageCache>({});
@@ -423,6 +424,7 @@ export function DynamicPageRenderer({ projectConfig }: DynamicPageRendererProps)
           onInstructionsChange={handleInstructionsChange}
           initialInstructions={customInstructions}
           isLoading={isLoading}
+          onReset={onReset}
         />
         <div className="flex-1 w-full" style={{ marginLeft: '320px' }}>
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -462,6 +464,7 @@ export function DynamicPageRenderer({ projectConfig }: DynamicPageRendererProps)
         onInstructionsChange={handleInstructionsChange}
         initialInstructions={customInstructions}
         isLoading={isLoading}
+        onReset={onReset}
       />
       <div className="flex-1 w-full" style={{ marginLeft: '320px' }}>
         {currentContent ? (

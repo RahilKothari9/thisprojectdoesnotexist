@@ -12,9 +12,10 @@ interface SessionViewProps {
   onInstructionsChange?: (instructions: string) => void;
   initialInstructions?: string;
   isLoading?: boolean;
+  onReset?: () => void;
 }
 
-export function SessionView({ projectName, visitedPages, onEndSession, onInstructionsChange, initialInstructions = "", isLoading = false }: SessionViewProps) {
+export function SessionView({ projectName, visitedPages, onEndSession, onInstructionsChange, initialInstructions = "", isLoading = false, onReset }: SessionViewProps) {
   const [customUrl, setCustomUrl] = useState("");
   const [customInstructions, setCustomInstructions] = useState(initialInstructions);
   const navigate = useNavigate();
@@ -41,10 +42,23 @@ export function SessionView({ projectName, visitedPages, onEndSession, onInstruc
       <div className="space-y-6">
         {/* Project Header */}
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h2 className="text-lg font-semibold text-white">{projectName}</h2>
-            {isLoading && (
-              <div className="w-4 h-4 border-2 border-slate-600 border-t-blue-400 rounded-full animate-spin"></div>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-white">{projectName}</h2>
+              {isLoading && (
+                <div className="w-4 h-4 border-2 border-slate-600 border-t-blue-400 rounded-full animate-spin"></div>
+              )}
+            </div>
+            {onReset && (
+              <Button
+                onClick={onReset}
+                variant="ghost"
+                size="sm"
+                className="text-slate-400 hover:text-white hover:bg-slate-700 px-2 py-1 h-auto text-xs"
+                title="Start New Project"
+              >
+                Reset
+              </Button>
             )}
           </div>
           <p className="text-sm text-slate-400">

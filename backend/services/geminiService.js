@@ -95,9 +95,12 @@ class GeminiService {
     try {
       console.log(`🔄 Generating page: ${path} for project: ${projectName}`);
       
-      // Build contents array with chat history for context
+      // Build contents array with limited chat history for context
+      // Only include the last 2 exchanges to maintain consistency without overwhelming context
+      const recentHistory = session.context.chatHistory.slice(-4); // Last 4 messages (2 exchanges)
+      
       const contents = [
-        ...session.context.chatHistory.map(msg => ({
+        ...recentHistory.map(msg => ({
           role: msg.role === 'assistant' ? 'model' : 'user',
           parts: [{ text: msg.content }]
         })),
@@ -115,8 +118,8 @@ class GeminiService {
           thinkingConfig: {
             thinkingBudget: 0, // Disable thinking for faster responses
           },
-          maxOutputTokens: 8192,
-          temperature: 0.7,
+          maxOutputTokens: 4096, // Reduced from 8192 for faster generation
+          temperature: 0.9, // Higher temperature for faster, more creative responses
         }
       });
       
@@ -156,39 +159,13 @@ class GeminiService {
 
   // Build initialization prompt for new sessions
   buildInitializationPrompt(projectName, instructions) {
-    return `You are an expert web developer creating a professional website for "${projectName}".
+    return `Create a professional website for "${projectName}". 
 
-PROJECT CONTEXT:
-- Project Name: ${projectName}
-- User Instructions: ${instructions || 'Create a modern, professional website'}
-
-YOUR ROLE:
-You have complete creative freedom to design and build this website. Use your expertise to create compelling, realistic pages that make sense for this project. Each page should feel authentic and professional.
-
-CRITICAL CONSISTENCY REQUIREMENTS:
-1. MAINTAIN IDENTICAL STYLING across ALL pages - same colors, fonts, spacing, layout structure
-2. NEVER use images, logos, photos, or any external media files - they won't exist
-3. Use CSS-only design elements: gradients, borders, shadows, geometric shapes, icons from CSS/Unicode
-4. Keep the EXACT same navigation menu on every page
-5. Use the SAME color scheme, typography, and design patterns throughout
-6. Maintain consistent header/footer structure across all pages
-
-TECHNICAL GUIDELINES (CRITICAL FOR RENDERING):
-1. ALWAYS respond with ONLY valid HTML - no explanations, no markdown, no extra text
-2. Include ALL CSS in <style> tags within the <head> section
-3. Start every response with <!DOCTYPE html>
-4. Add proper UTF-8 encoding: <meta charset="UTF-8">
-5. Use proper HTML5 structure with semantic elements
-6. Make pages fully responsive and modern
-7. Include realistic content - no placeholders or Lorem ipsum
-8. Create logical navigation between pages
-9. Ensure cross-browser compatibility
-10. CRITICAL: Add navigation JavaScript to handle link clicks properly
-
-NAVIGATION REQUIREMENTS:
-- All internal links must use relative paths (e.g., "/about", "/features")
-- Include JavaScript that intercepts link clicks and sends navigation messages
-- Add this exact JavaScript before closing </body> tag:
+REQUIREMENTS:
+- IDENTICAL styling across ALL pages
+- NO images/logos - use CSS/Unicode only
+- Same navigation menu everywhere
+- Include navigation JavaScript:
 
 <script>
 document.addEventListener('click', function(e) {
@@ -197,78 +174,45 @@ document.addEventListener('click', function(e) {
     const url = new URL(link.href);
     if (url.pathname !== window.location.pathname) {
       e.preventDefault();
-      window.parent.postMessage({
-        type: 'navigate',
-        path: url.pathname
-      }, '*');
+      window.parent.postMessage({type: 'navigate', path: url.pathname}, '*');
     }
   }
 });
 </script>
 
-DESIGN CONSTRAINTS:
-- NO images, logos, photos, or external media files
-- NO <img> tags or background-image CSS properties
-- Use CSS shapes, gradients, and Unicode symbols/emojis instead
-- Ensure proper UTF-8 encoding for emoji and special characters
-- Create visual interest with typography, spacing, and CSS effects
-- Build cohesive brand identity through consistent styling only
+TEMPLATE:
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<style>/* CSS here */</style>
+</head><body>
+<!-- Content -->
+<script>/* navigation script */</script>
+</body></html>
 
-CREATIVE FREEDOM (within constraints):
-- Design the website however you think best represents the project
-- Choose appropriate colors, fonts, and layouts (but keep them consistent)
-- Create realistic business content and features
-- Interpret abstract URLs creatively as business concepts
-- Build a cohesive brand experience through design consistency
-
-Remember: You will generate multiple pages for this project. ABSOLUTE consistency in design, branding, navigation, and styling is critical. Be creative but maintain strict visual consistency.
-
-Respond with "Session initialized" to confirm you understand.`;
+Respond "Ready" to confirm.`;
   }
 
   // Build prompt for specific page generation
   buildPagePrompt(path, projectName, baseInstructions, customInstructions, generatedPages) {
     const pageName = path === '/' ? 'homepage' : path.replace('/', '');
     
-    const previousPagesContext = generatedPages.length > 0 
-      ? `\nPREVIOUSLY GENERATED PAGES:\n${generatedPages.map(p => `- ${p.path} (generated ${p.generatedAt.toLocaleString()})`).join('\n')}`
-      : '\nThis is the first page for this project.';
+    return `Generate ${pageName} for "${projectName}" at ${path}
 
-    return `Generate a complete webpage for "${projectName}" at path: ${path}
+REQUIREMENTS:
+- IDENTICAL styling to previous pages
+- NO images - CSS/Unicode only
+- Same navigation menu
+- Professional content
+- Must include navigation script before </body>
 
-PROJECT CONTEXT:
-- Project Name: ${projectName}
-- URL Path: ${path} (${pageName})
-- User's Instructions: ${baseInstructions || 'Create a professional website'}
-- Additional Context: ${customInstructions || 'None provided'}
-${previousPagesContext}
-
-CONTEXT FOR THIS PAGE:
-You are building page "${pageName}" for the project "${projectName}". Use your web development expertise to create an appropriate page that fits this URL and project. Be creative in interpreting what this page should contain.
-
-CRITICAL CONSISTENCY REQUIREMENTS:
-1. Use IDENTICAL styling to previous pages - same colors, fonts, navigation, layout structure
-2. NEVER include images, logos, photos, or any media files - use CSS-only design
-3. Keep the EXACT same navigation menu structure and styling
-4. Maintain consistent header/footer across all pages
-5. Use the same color palette, typography, and spacing throughout
-6. Create visual elements using CSS gradients, shapes, borders, shadows only
-
-CRITICAL RENDERING REQUIREMENTS:
-1. Respond with ONLY the complete HTML document - no explanations
-2. Start with <!DOCTYPE html>
-3. Include ALL CSS in <style> tags within <head>
-4. Add proper UTF-8 meta charset: <meta charset="UTF-8">
-5. Create realistic, professional content (no placeholders)
-6. Make it fully responsive and modern
-7. Include proper navigation to other logical pages
-8. Ensure the HTML is valid and will render correctly
-9. NO <img> tags or background-image properties - use CSS-only visuals
-10. CRITICAL: Add navigation JavaScript before closing </body> tag
-
-NAVIGATION JAVASCRIPT (MUST INCLUDE):
-Add this exact script before </body>:
-
+TEMPLATE:
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<style>/* Consistent CSS */</style>
+</head><body>
+<!-- Page content -->
 <script>
 document.addEventListener('click', function(e) {
   const link = e.target.closest('a');
@@ -276,23 +220,14 @@ document.addEventListener('click', function(e) {
     const url = new URL(link.href);
     if (url.pathname !== window.location.pathname) {
       e.preventDefault();
-      window.parent.postMessage({
-        type: 'navigate',
-        path: url.pathname
-      }, '*');
+      window.parent.postMessage({type: 'navigate', path: url.pathname}, '*');
     }
   }
 });
 </script>
+</body></html>
 
-DESIGN CONSISTENCY CHECKLIST:
-- Same navigation menu on every page
-- Identical color scheme and typography
-- Consistent spacing and layout patterns
-- Same header/footer structure
-- Visual consistency through CSS-only elements
-
-Generate the complete HTML page now:`;
+Generate complete HTML now:`;
   }
 
   // Clean and validate HTML output

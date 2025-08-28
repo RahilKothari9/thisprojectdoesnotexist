@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { InitialSetup } from "@/components/InitialSetup";
 import { DynamicPageRenderer } from "@/components/DynamicPageRenderer";
+import ExportPage from "@/components/ExportPage";
 
 interface ProjectConfig {
   name: string;
@@ -60,6 +61,7 @@ function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/export" element={<ExportPage />} />
         <Route 
           path="*" 
           element={<DynamicPageRenderer projectConfig={projectConfig} onReset={handleReset} />} 

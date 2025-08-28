@@ -88,6 +88,10 @@ export function SessionView({ projectName, visitedPages, onEndSession, onInstruc
                 Go
               </Button>
             </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Enter any path (e.g., /about, /pricing, /contact) to generate a new page. 
+              The LLM will create content matching your project's style and navigation.
+            </p>
           </CardContent>
         </Card>
 

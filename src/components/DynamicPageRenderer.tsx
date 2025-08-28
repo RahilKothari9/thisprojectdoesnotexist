@@ -250,7 +250,6 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
     // Store session data in localStorage for the export page
     localStorage.setItem('exportSessionData', JSON.stringify(sessionData));
     
-    // Navigate to export page instead of showing in iframe
     navigate('/export');
   };
 

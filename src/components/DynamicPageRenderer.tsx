@@ -40,6 +40,13 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
     setCustomInstructions(instructions);
   };
 
+  const handleReset = () => {
+    if (onReset) {
+      onReset(); // Clear project config and localStorage
+    }
+    navigate('/'); // Navigate back to home URL
+  };
+
   useEffect(() => {
     const currentPath = location.pathname;
     console.log(`🧭 Navigation to: ${currentPath}`);
@@ -424,7 +431,7 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
           onInstructionsChange={handleInstructionsChange}
           initialInstructions={customInstructions}
           isLoading={isLoading}
-          onReset={onReset}
+          onReset={handleReset}
         />
         <div className="flex-1 w-full" style={{ marginLeft: '320px' }}>
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -464,7 +471,7 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
         onInstructionsChange={handleInstructionsChange}
         initialInstructions={customInstructions}
         isLoading={isLoading}
-        onReset={onReset}
+        onReset={handleReset}
       />
       <div className="flex-1 w-full" style={{ marginLeft: '320px' }}>
         {currentContent ? (

@@ -165,6 +165,9 @@ REQUIREMENTS:
 - IDENTICAL styling across ALL pages
 - NO images/logos - use CSS/Unicode only
 - Same navigation menu everywhere
+- ALL LINKS must use RELATIVE PATHS ONLY (e.g., href="/about", href="/contact")
+- NEVER use target="_blank" or target="_new" or window.open()
+- NO external links or absolute URLs
 - Include navigation JavaScript:
 
 <script>
@@ -204,6 +207,9 @@ REQUIREMENTS:
 - NO images - CSS/Unicode only
 - Same navigation menu
 - Professional content
+- ALL LINKS must use RELATIVE PATHS ONLY (e.g., href="/about", href="/contact")
+- NEVER use target="_blank" or target="_new" or window.open()
+- NO external links or absolute URLs
 - Must include navigation script before </body>
 
 TEMPLATE:

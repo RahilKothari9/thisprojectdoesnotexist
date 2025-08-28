@@ -108,3 +108,5 @@ coverage
 # Local development
 .vercel
 .netlify
+
+.vercel

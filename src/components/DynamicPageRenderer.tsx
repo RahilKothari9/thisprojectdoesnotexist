@@ -246,7 +246,7 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
       generationPrompts,
       sessionStartTime
     };
-
+    generateEndPageContent(sessionData);
     // Store session data in localStorage for the export page
     localStorage.setItem('exportSessionData', JSON.stringify(sessionData));
     

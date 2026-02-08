@@ -14,8 +14,7 @@ const {
 
 // Validate environment variables
 if (!process.env.GEMINI_API_KEY) {
-  console.error('❌ GEMINI_API_KEY is required. Please check your .env file.');
-  process.exit(1);
+  console.warn('⚠️ GEMINI_API_KEY is not set. AI generation will fail until configured.');
 }
 
 const app = express();

@@ -39,7 +39,7 @@ class GeminiService {
     try {
       // Use the new API to send initialization message
       const response = await this.genAI.models.generateContent({
-        model: "gemini-2.5-flash-lite",
+        model: "gemini-3-flash-preview",
         contents: initPrompt,
         config: {
           thinkingConfig: {
@@ -112,7 +112,7 @@ class GeminiService {
       
       // Use the new API to generate content
       const response = await this.genAI.models.generateContent({
-        model: "gemini-2.5-flash-lite",
+        model: "gemini-3-flash-preview",
         contents: contents,
         config: {
           thinkingConfig: {

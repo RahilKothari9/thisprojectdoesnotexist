@@ -34,11 +34,11 @@ class GeminiService {
 
     try {
       const response = await this.genAI.models.generateContent({
-        model: "gemini-2.5-flash-lite",
+        model: "gemini-3-flash-preview",
         contents: initPrompt,
         config: {
           thinkingConfig: {
-            thinkingBudget: 0,
+            thinkingLevel: "minimal",
           },
           maxOutputTokens: 100,
           temperature: 0.7,
@@ -100,11 +100,11 @@ class GeminiService {
       ];
 
       const response = await this.genAI.models.generateContent({
-        model: "gemini-2.5-flash-lite",
+        model: "gemini-3-flash-preview",
         contents: contents,
         config: {
           thinkingConfig: {
-            thinkingBudget: 0,
+            thinkingLevel: "minimal",
           },
           maxOutputTokens: 8192,
           temperature: 0.8,

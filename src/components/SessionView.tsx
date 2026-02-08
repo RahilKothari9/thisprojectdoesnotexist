@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { ArrowRight, BookX } from "lucide-react";
 
 interface SessionViewProps {
   projectName: string;
@@ -19,6 +20,7 @@ export function SessionView({ projectName, visitedPages, onEndSession, onInstruc
   const [customUrl, setCustomUrl] = useState("");
   const [customInstructions, setCustomInstructions] = useState(initialInstructions);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleNavigateToUrl = () => {
     if (customUrl.trim()) {
@@ -38,15 +40,16 @@ export function SessionView({ projectName, visitedPages, onEndSession, onInstruc
   };
 
   return (
-    <div className="fixed left-0 top-0 h-full w-80 bg-slate-900/95 backdrop-blur border-r border-slate-700 p-4 overflow-y-auto">
-      <div className="space-y-6">
-        {/* Project Header */}
+    <div className="fixed left-0 top-0 h-full w-80 bg-[#1e1233]/95 backdrop-blur-sm border-r border-[rgba(212,168,67,0.15)] p-4 overflow-y-auto z-20">
+      <div className="space-y-5">
+
+        {/* Chapter Title */}
         <div>
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-white">{projectName}</h2>
+              <h2 className="font-cinzel text-lg font-bold text-[#f0c75e] truncate max-w-[200px]">{projectName}</h2>
               {isLoading && (
-                <div className="w-4 h-4 border-2 border-slate-600 border-t-blue-400 rounded-full animate-spin"></div>
+                <div className="w-3.5 h-3.5 border-2 border-[#2a1845] border-t-[#d4a843] rounded-full animate-spin"></div>
               )}
             </div>
             {onReset && (
@@ -54,97 +57,107 @@ export function SessionView({ projectName, visitedPages, onEndSession, onInstruc
                 onClick={onReset}
                 variant="ghost"
                 size="sm"
-                className="text-slate-400 hover:text-white hover:bg-slate-700 px-2 py-1 h-auto text-xs"
+                className="text-[#9a8c7a] hover:text-[#d4a843] hover:bg-[#2a1845] px-2 py-1 h-auto text-xs"
                 title="Start New Project"
               >
                 Reset
               </Button>
             )}
           </div>
-          <p className="text-sm text-slate-400">
-            {isLoading ? 'Generating page...' : 'Ideation Session'}
+          {/* Gold underline flourish */}
+          <div className="h-px bg-gradient-to-r from-[#d4a843]/60 via-[#d4a843]/20 to-transparent mb-1"></div>
+          <p className="text-xs rune-label text-[#9a8c7a]">
+            {isLoading ? 'Summoning...' : 'Conjuration Active'}
           </p>
         </div>
 
-        {/* URL Navigation */}
-        <Card className="bg-slate-800/50 border-slate-700">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-slate-200">Navigate to URL</CardTitle>
+        {/* Conjuration Path */}
+        <Card className="bg-[#2a1845]/40 border-[rgba(139,92,246,0.15)]">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs rune-label text-[#e8dcc8]">Conjuration Path</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-2">
             <div className="flex space-x-2">
               <Input
                 value={customUrl}
                 onChange={(e) => setCustomUrl(e.target.value)}
-                placeholder="/your-page"
-                className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 text-sm"
-                onKeyPress={(e) => e.key === 'Enter' && handleNavigateToUrl()}
+                placeholder="/enter-a-path"
+                className="bg-[#1e1233]/80 border-[rgba(139,92,246,0.2)] text-[#e8dcc8] placeholder:text-[#9a8c7a]/50 text-sm focus:border-[#d4a843] focus:shadow-[0_0_8px_rgba(212,168,67,0.15)] transition-all duration-300"
+                onKeyDown={(e) => e.key === 'Enter' && handleNavigateToUrl()}
               />
               <Button
                 onClick={handleNavigateToUrl}
                 size="sm"
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-[#d4a843]/20 border border-[#d4a843]/30 text-[#d4a843] hover:bg-[#d4a843]/30 hover:shadow-[0_0_10px_rgba(212,168,67,0.2)] transition-all duration-300 px-2.5"
               >
-                Go
+                <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Enter any path (e.g., /about, /pricing, /contact) to generate a new page. 
-              The LLM will create content matching your project's style and navigation.
+            <p className="text-[10px] text-[#9a8c7a] leading-relaxed">
+              Enter any path to conjure a new page...
             </p>
           </CardContent>
         </Card>
 
-        {/* Custom Instructions */}
-        <Card className="bg-slate-800/50 border-slate-700">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-slate-200">Page Instructions</CardTitle>
+        {/* Enchantment Notes */}
+        <Card className="bg-[#2a1845]/40 border-[rgba(139,92,246,0.15)]">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs rune-label text-[#e8dcc8]">Enchantment Notes</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-2">
             <Textarea
               value={customInstructions}
               onChange={(e) => handleInstructionsChange(e.target.value)}
-              placeholder="Add specific instructions for page generation..."
-              className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 text-sm min-h-[80px] resize-none"
+              placeholder="Scribe your enchantment notes here..."
+              className="bg-[#1e1233]/80 border-[rgba(139,92,246,0.2)] text-[#e8dcc8] placeholder:text-[#9a8c7a]/50 text-sm min-h-[70px] resize-none focus:border-[#d4a843] focus:shadow-[0_0_8px_rgba(212,168,67,0.15)] transition-all duration-300"
             />
-            <p className="text-xs text-slate-500">
-              These instructions will be used when generating new pages
+            <p className="text-[10px] text-[#9a8c7a]">
+              These notes guide the conjuration of new pages
             </p>
           </CardContent>
         </Card>
 
-        {/* Visited Pages */}
+        {/* Summoned Pages */}
         {visitedPages.length > 0 && (
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-slate-200">
-                Visited Pages ({visitedPages.length})
+          <Card className="bg-[#2a1845]/40 border-[rgba(139,92,246,0.15)]">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs rune-label text-[#e8dcc8]">
+                Summoned Pages ({visitedPages.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-1 max-h-40 overflow-y-auto">
-                {visitedPages.map((page, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleQuickNav(page)}
-                    className="w-full text-left px-2 py-1 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 rounded transition-colors"
-                  >
-                    {page === '/' ? '/ (home)' : page}
-                  </button>
-                ))}
+              <div className="space-y-0.5 max-h-44 overflow-y-auto">
+                {visitedPages.map((page, index) => {
+                  const isActive = location.pathname === page;
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => handleQuickNav(page)}
+                      className={`w-full text-left px-2 py-1.5 text-xs rounded transition-all duration-300 flex items-center gap-2 ${
+                        isActive
+                          ? 'text-[#f0c75e] bg-[#d4a843]/10 shadow-[0_0_8px_rgba(212,168,67,0.1)]'
+                          : 'text-[#9a8c7a] hover:text-[#e8dcc8] hover:bg-[#2a1845]/60'
+                      }`}
+                    >
+                      <span className={`text-[8px] ${isActive ? 'text-[#d4a843]' : 'text-[#9a8c7a]/40'}`}>◆</span>
+                      <span className="font-mono">{page === '/' ? '/ (home)' : page}</span>
+                    </button>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* End Session */}
-        <div className="pt-4">
+        {/* Seal the Grimoire */}
+        <div className="pt-3">
           <Button
             onClick={onEndSession}
             variant="outline"
-            className="w-full bg-red-900/20 border-red-800 text-red-300 hover:bg-red-900/30 hover:border-red-700"
+            className="w-full bg-[#7c3aed]/10 border-[#7c3aed]/30 text-[#8b5cf6] hover:bg-[#7c3aed]/20 hover:border-[#7c3aed]/50 transition-all duration-300"
           >
-            End Session & Export
+            <BookX className="w-4 h-4 mr-2" />
+            Seal the Grimoire
           </Button>
         </div>
       </div>

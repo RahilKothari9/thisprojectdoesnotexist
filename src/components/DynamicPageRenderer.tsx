@@ -37,10 +37,19 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
   const [sessionStartTime] = useState(new Date());
   const [customInstructions, setCustomInstructions] = useState(projectConfig.instructions);
   const [activeRequests, setActiveRequests] = useState<Set<string>>(new Set());
+  const [showRipple, setShowRipple] = useState(false);
 
   const handleInstructionsChange = (instructions: string) => {
     setCustomInstructions(instructions);
   };
+
+  useEffect(() => {
+    if (currentContent) {
+      setShowRipple(true);
+      const timer = setTimeout(() => setShowRipple(false), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [currentContent]);
 
   const handleReset = () => {
     if (onReset) {
@@ -313,7 +322,7 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
         {/* Gold spine divider */}
         <div className="fixed left-80 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-[#d4a843]/30 to-transparent z-30" style={{ boxShadow: '0 0 8px rgba(212, 168, 67, 0.1)' }}></div>
         {currentContent ? (
-          <div className="w-full h-full border border-[rgba(212,168,67,0.1)] shadow-[inset_0_0_30px_rgba(212,168,67,0.03)]"
+          <div className="w-full h-full relative border border-[rgba(212,168,67,0.1)] shadow-[inset_0_0_30px_rgba(212,168,67,0.03)]"
             style={{ background: "radial-gradient(ellipse at center, #1a0a2e 0%, #0a0612 70%)" }}
           >
             <iframe
@@ -322,6 +331,14 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
               title={`${projectConfig.name} - Page Content`}
               sandbox="allow-same-origin allow-scripts allow-downloads"
             />
+            {showRipple && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                <div
+                  className="w-20 h-20 rounded-full animate-[ripple_0.6s_ease-out_forwards]"
+                  style={{ background: "radial-gradient(circle, rgba(212,168,67,0.4) 0%, transparent 70%)" }}
+                />
+              </div>
+            )}
           </div>
         ) : (
           <div

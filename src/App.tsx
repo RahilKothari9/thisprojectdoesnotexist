@@ -13,6 +13,7 @@ interface ProjectConfig {
 function App() {
   const [projectConfig, setProjectConfig] = useState<ProjectConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Load project config from localStorage on app start
   useEffect(() => {
@@ -31,9 +32,12 @@ function App() {
 
   const handleConfirm = (name: string, instructions: string) => {
     const config = { name, instructions };
-    setProjectConfig(config);
-    // Save to localStorage for persistence across page refreshes
-    localStorage.setItem('projectConfig', JSON.stringify(config));
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setProjectConfig(config);
+      localStorage.setItem('projectConfig', JSON.stringify(config));
+      setIsTransitioning(false);
+    }, 500);
   };
 
   const handleReset = () => {
@@ -58,20 +62,29 @@ function App() {
 
   // If no project config is set, show the initial setup
   if (!projectConfig) {
-    return <InitialSetup onConfirm={handleConfirm} />;
+    return (
+      <div
+        className={isTransitioning ? "animate-[book-open_0.5s_ease-out_forwards]" : ""}
+        style={isTransitioning ? { transformOrigin: "center center" } : undefined}
+      >
+        <InitialSetup onConfirm={handleConfirm} />
+      </div>
+    );
   }
 
   // Once project is configured, show the dynamic page renderer with routing
   return (
-    <Router>
-      <Routes>
-        <Route path="/export" element={<ExportPage />} />
-        <Route 
-          path="*" 
-          element={<DynamicPageRenderer projectConfig={projectConfig} onReset={handleReset} />} 
-        />
-      </Routes>
-    </Router>
+    <div className="animate-[fade-in_0.5s_ease-out]">
+      <Router>
+        <Routes>
+          <Route path="/export" element={<ExportPage />} />
+          <Route
+            path="*"
+            element={<DynamicPageRenderer projectConfig={projectConfig} onReset={handleReset} />}
+          />
+        </Routes>
+      </Router>
+    </div>
   );
 }
 

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { InitialSetup } from "@/components/InitialSetup";
 import { DynamicPageRenderer } from "@/components/DynamicPageRenderer";
 import ExportPage from "@/components/ExportPage";
+import { RuneCircle } from "@/components/arcane/RuneCircle";
 
 interface ProjectConfig {
   name: string;
@@ -43,10 +44,13 @@ function App() {
   // Show loading while checking for saved config
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "radial-gradient(ellipse at center, #1a0a2e 0%, #0a0612 70%)" }}
+      >
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <RuneCircle size={60} className="mx-auto mb-6" />
+          <p className="font-cinzel text-[#e8dcc8] text-sm">Preparing the grimoire...</p>
         </div>
       </div>
     );

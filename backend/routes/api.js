@@ -134,74 +134,80 @@ function generateErrorPage(errorMessage, projectName) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Generation Error - ${projectName}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-            color: #e2e8f0;
+            background: linear-gradient(135deg, #0a0612 0%, #1a0a2e 100%);
+            color: #e8dcc8;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 2rem;
         }
-        
+
         .error-container {
-            background: rgba(30, 41, 59, 0.8);
+            background: #1e1233;
             backdrop-filter: blur(10px);
             border-radius: 16px;
-            border: 1px solid #475569;
+            border: 1px solid rgba(139, 92, 246, 0.2);
             padding: 3rem;
             max-width: 600px;
             text-align: center;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
-        
+
         .error-icon {
             width: 80px;
             height: 80px;
-            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            background: linear-gradient(135deg, #7c3aed, #8b5cf6);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0 auto 2rem;
         }
-        
+
         .error-icon svg {
             width: 40px;
             height: 40px;
             color: white;
         }
-        
+
         h1 {
+            font-family: 'Cinzel', serif;
             font-size: 2rem;
             margin-bottom: 1rem;
-            color: #f8fafc;
+            color: #f0c75e;
         }
-        
+
         .error-message {
-            color: #cbd5e1;
+            color: #e8dcc8;
             margin-bottom: 2rem;
             line-height: 1.6;
         }
-        
+
+        .error-message p code {
+            background: #2a1845;
+        }
+
         .retry-info {
-            background: rgba(59, 130, 246, 0.1);
-            border: 1px solid #3b82f6;
+            background: rgba(212, 168, 67, 0.1);
+            border: 1px solid #d4a843;
             border-radius: 8px;
             padding: 1rem;
             margin-top: 2rem;
         }
-        
+
         .retry-info p {
-            color: #93c5fd;
+            color: #d4a843;
             font-size: 0.9rem;
         }
     </style>
@@ -213,18 +219,18 @@ function generateErrorPage(errorMessage, projectName) {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
             </svg>
         </div>
-        
-        <h1>Page Generation Failed</h1>
-        
+
+        <h1>The Conjuration Failed</h1>
+
         <div class="error-message">
             <p>We encountered an issue while generating this page for <strong>${projectName}</strong>.</p>
-            <p style="margin-top: 1rem; font-family: monospace; background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 6px; font-size: 0.85rem;">
+            <p style="margin-top: 1rem; font-family: monospace; background: #2a1845; padding: 1rem; border-radius: 6px; font-size: 0.85rem;">
                 ${errorMessage}
             </p>
         </div>
-        
+
         <div class="retry-info">
-            <p>💡 Try refreshing the page or navigating to a different URL. The AI service may be temporarily busy.</p>
+            <p>The spirits may be resting. Try refreshing or conjuring a different page.</p>
         </div>
     </div>
 </body>

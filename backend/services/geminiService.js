@@ -106,7 +106,7 @@ class GeminiService {
           thinkingConfig: {
             thinkingBudget: 0,
           },
-          maxOutputTokens: 8192,
+          maxOutputTokens: 4096,
           temperature: 0.8,
         }
       });
@@ -143,33 +143,15 @@ class GeminiService {
   }
 
   buildInitializationPrompt(projectName, instructions) {
-    return `You are an expert frontend designer. You will generate a complete, visually striking website for "${projectName}".
-${instructions ? `\nUser instructions: ${instructions}` : ''}
+    return `Create a website for "${projectName}".${instructions ? ` ${instructions}` : ''}
 
-DESIGN PRINCIPLES -- follow these strictly:
-
-1. TYPOGRAPHY: Pick ONE distinctive Google Font pairing. Never use Inter, Roboto, Arial, or system fonts. Choose something with character -- a bold display font paired with a clean body font. Load them via <link> from fonts.googleapis.com.
-
-2. COLOR: Commit to a bold, cohesive palette. Use a dominant background color with 1-2 sharp accent colors. No bland grays-on-white. No purple gradients. Think editorial, think intentional.
-
-3. LAYOUT: Be creative with spatial composition. Use generous whitespace OR controlled density. Asymmetric layouts, overlapping elements, full-bleed sections, and unexpected grid patterns are all welcome. Avoid the generic "hero + 3 cards + footer" template.
-
-4. ATMOSPHERE: Add depth through subtle background textures, gradients, shadows, or patterns. Not flat. Not generic. Every page should feel designed, not generated.
-
-5. CONTENT: Write real, specific, believable content for the project. Not lorem ipsum. Not generic placeholder text. Write as if this is a real product with real users.
-
-6. NO IMAGES: Use CSS, SVG, Unicode, and clever styling instead of images. No external image URLs, no placeholder images.
-
-7. NO EMOJIS: Do not use emoji characters anywhere in the generated HTML. Use icons via SVG or CSS instead.
-
-TECHNICAL REQUIREMENTS:
-- Fully responsive (mobile-first)
-- IDENTICAL styling across ALL pages (same fonts, colors, nav, footer)
-- Same navigation menu on every page with links to: /, /about, /features, /pricing, /contact
-- ALL links must use RELATIVE PATHS ONLY (href="/about", not absolute URLs)
-- NEVER use target="_blank" or window.open()
-- Include this navigation script before </body>:
-
+RULES:
+- Pick a distinctive Google Font pairing (never Inter/Roboto/Arial). Bold colors, not bland.
+- No images, no emojis. Use CSS/SVG/Unicode only.
+- Real content, not lorem ipsum.
+- IDENTICAL styling across ALL pages. Same nav linking: /, /about, /features, /pricing, /contact
+- ALL links RELATIVE PATHS ONLY. NEVER target="_blank" or window.open()
+- Include before </body>:
 <script>
 document.addEventListener('click', function(e) {
   const link = e.target.closest('a');
@@ -183,49 +165,22 @@ document.addEventListener('click', function(e) {
 });
 </script>
 
-OUTPUT FORMAT:
-Return ONLY the complete HTML document. No markdown, no explanation, no commentary.
-Start with <!DOCTYPE html> and end with </html>.
-
-Respond "Ready" to confirm you understand.`;
+Return ONLY complete HTML. No markdown. Start <!DOCTYPE html>, end </html>.
+Respond "Ready".`;
   }
 
   buildPagePrompt(path, projectName, baseInstructions, customInstructions, generatedPages) {
     const pageName = path === '/' ? 'homepage' : path.replace('/', '');
-    const previousPages = generatedPages.map(p => p.path).join(', ') || 'none yet';
 
-    return `Generate the ${pageName} page for "${projectName}" at path: ${path}
-${customInstructions ? `\nAdditional instructions: ${customInstructions}` : ''}
+    return `Generate ${pageName} for "${projectName}" at ${path}
+${customInstructions ? `Instructions: ${customInstructions}` : ''}
 
-Previously generated pages: ${previousPages}
-
-DESIGN RULES (critical -- follow exactly):
-
-1. MATCH the exact same visual identity as previous pages: same fonts, same color palette, same navigation, same footer. Visual consistency is non-negotiable.
-
-2. TYPOGRAPHY: Use the same distinctive Google Font pairing established in previous pages. Load via <link> from fonts.googleapis.com. Never fall back to generic fonts.
-
-3. LAYOUT for this page should be UNIQUE from other pages while maintaining the same design system. Use creative section layouts -- not just stacked boxes. Consider:
-   - Alternating content/visual sections
-   - Bento grid layouts
-   - Full-width dramatic sections mixed with contained content
-   - Asymmetric two-column layouts
-   - Overlapping elements with z-index
-
-4. CONTENT: Write real, specific, believable content appropriate for this page type. Not placeholder text. If this is a pricing page, write real-sounding plans. If about, write a compelling story.
-
-5. NO IMAGES, NO EMOJIS: Use CSS, SVG, and Unicode for visual elements. Never use emoji characters. Never use external image URLs.
-
-6. ATMOSPHERE: Maintain the same background treatment, shadows, and visual depth as other pages.
-
-TECHNICAL REQUIREMENTS:
-- Fully responsive
-- Same navigation with links to: /, /about, /features, /pricing, /contact
-- Active page should be visually indicated in the nav
-- ALL links use RELATIVE PATHS ONLY
-- NEVER use target="_blank" or window.open()
-- Must include this script before </body>:
-
+RULES:
+- IDENTICAL styling to previous pages. Same fonts, colors, nav, footer.
+- No images, no emojis. CSS/SVG/Unicode only. Real content, not placeholder.
+- Same nav: /, /about, /features, /pricing, /contact. Highlight active page.
+- ALL links RELATIVE PATHS ONLY. NEVER target="_blank" or window.open()
+- Include before </body>:
 <script>
 document.addEventListener('click', function(e) {
   const link = e.target.closest('a');
@@ -239,9 +194,8 @@ document.addEventListener('click', function(e) {
 });
 </script>
 
-OUTPUT: Return ONLY the complete HTML. No markdown fences, no explanation. Start with <!DOCTYPE html>, end with </html>.
-
-Generate the complete HTML now:`;
+Return ONLY complete HTML. No markdown. Start <!DOCTYPE html>, end </html>.
+Generate now:`;
   }
 
   cleanAndValidateHTML(htmlContent) {

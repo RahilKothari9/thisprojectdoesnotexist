@@ -31,7 +31,7 @@ router.post('/generate',
         sessionId 
       } = req.body;
 
-      console.log(`� API Request: ${path} for ${project} (Session: ${sessionId})`);
+      console.log(`[api] request: ${path} for ${project} (session: ${sessionId})`);
 
       // Extract custom instructions from prompt if needed
       const customInstructions = instructions || '';
@@ -45,14 +45,14 @@ router.post('/generate',
         customInstructions
       );
 
-      console.log(`📤 API Response: ${path} (${htmlContent.length} characters)`);
+      console.log(`[api] response: ${path} (${htmlContent.length} chars)`);
 
       // Return the HTML content directly
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.send(htmlContent);
 
     } catch (error) {
-      console.error('❌ Generation failed:', error);
+      console.error('[error] generation failed:', error);
       
       // Return a fallback error page
       const errorHtml = generateErrorPage(error.message, req.body.project || 'Unknown Project');
@@ -69,7 +69,7 @@ router.post('/session/init',
     try {
       const { sessionId, project, instructions = '' } = req.body;
       
-      console.log(`🔄 Initializing session ${sessionId} for project: ${project}`);
+      console.log(`[api] initializing session ${sessionId} for: ${project}`);
       
       const success = await geminiService.initializeSession(
         sessionId.toString(),
@@ -89,7 +89,7 @@ router.post('/session/init',
       }
 
     } catch (error) {
-      console.error('❌ Session initialization failed:', error);
+      console.error('[error] session init failed:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to initialize session',
@@ -119,7 +119,7 @@ router.get('/session/:sessionId', (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Failed to get session info:', error);
+    console.error('[error] failed to get session info:', error);
     res.status(500).json({
       error: 'Failed to retrieve session information'
     });

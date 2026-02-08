@@ -14,7 +14,7 @@ const {
 
 // Validate environment variables
 if (!process.env.GEMINI_API_KEY) {
-  console.warn('⚠️ GEMINI_API_KEY is not set. AI generation will fail until configured.');
+  console.warn('[warn] GEMINI_API_KEY is not set. AI generation will fail until configured.');
 }
 
 const app = express();
@@ -105,34 +105,32 @@ app.use(errorHandler);
 
 // Graceful shutdown handling
 process.on('SIGTERM', () => {
-  console.log('🛑 SIGTERM received, shutting down gracefully...');
+  console.log('[server] SIGTERM received, shutting down...');
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
-  console.log('🛑 SIGINT received, shutting down gracefully...');
+  console.log('[server] SIGINT received, shutting down...');
   process.exit(0);
 });
 
 // Start server
 const server = app.listen(PORT, () => {
-  console.log('🚀 ThisProjectDoesNotExist Backend Server');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log(`📡 Server running on port ${PORT}`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
-  console.log(`🎯 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
-  console.log(`🤖 Gemini AI: ${process.env.GEMINI_API_KEY ? '✅ Configured' : '❌ Missing API Key'}`);
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('💡 Ready to generate amazing web pages!');
+  console.log('[server] ThisProjectDoesNotExist');
+  console.log(`[server] port: ${PORT}`);
+  console.log(`[server] env: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`[server] api: http://localhost:${PORT}/api`);
+  console.log(`[server] frontend: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
+  console.log(`[server] gemini: ${process.env.GEMINI_API_KEY ? 'configured' : 'MISSING API KEY'}`);
+  console.log('[server] ready');
 });
 
 // Handle server errors
 server.on('error', (error) => {
   if (error.code === 'EADDRINUSE') {
-    console.error(`❌ Port ${PORT} is already in use. Please use a different port.`);
+    console.error(`[error] port ${PORT} is already in use`);
   } else {
-    console.error('❌ Server error:', error);
+    console.error('[error] server error:', error);
   }
   process.exit(1);
 });

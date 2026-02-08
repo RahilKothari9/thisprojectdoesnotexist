@@ -72,7 +72,7 @@ const validateGenerationRequest = (req, res, next) => {
 
 // Error handling middleware
 const errorHandler = (err, req, res, next) => {
-  console.error('❌ API Error:', err);
+  console.error('[error] API error:', err);
 
   // Handle Gemini API errors
   if (err.message && err.message.includes('API key')) {
@@ -116,8 +116,8 @@ const requestLogger = (req, res, next) => {
     const url = req.originalUrl;
     const ip = req.ip || req.connection.remoteAddress;
     
-    const statusEmoji = status >= 400 ? '❌' : status >= 300 ? '⚠️' : '✅';
-    console.log(`${statusEmoji} ${method} ${url} - ${status} - ${duration}ms - ${ip}`);
+    const tag = status >= 400 ? 'ERR' : status >= 300 ? 'REDIR' : 'OK';
+    console.log(`[${tag}] ${method} ${url} - ${status} - ${duration}ms - ${ip}`);
   });
   
   next();

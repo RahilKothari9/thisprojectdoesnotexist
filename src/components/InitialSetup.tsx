@@ -1,12 +1,9 @@
 import { useState, useEffect } from "react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { generateRandomName } from "@/utils/nameGenerator";
-import { ArcaneBackground } from "@/components/arcane/ArcaneBackground";
-import { ArcaneDivider } from "@/components/arcane/ArcaneDivider";
-import { Feather, Sparkles, BookOpen, RotateCw } from "lucide-react";
+import { RotateCw, ArrowRight, Terminal, Zap, Download } from "lucide-react";
 
 interface InitialSetupProps {
   onConfirm: (name: string, instructions: string) => void;
@@ -19,7 +16,6 @@ export function InitialSetup({ onConfirm }: InitialSetupProps) {
   const [currentSpinnerName, setCurrentSpinnerName] = useState("");
 
   useEffect(() => {
-    // Simple spinner effect that cycles through names
     const spinnerNames: string[] = [];
     for (let i = 0; i < 6; i++) {
       spinnerNames.push(generateRandomName());
@@ -31,7 +27,6 @@ export function InitialSetup({ onConfirm }: InitialSetupProps) {
         setCurrentSpinnerName(spinnerNames[currentIndex]);
         currentIndex++;
       } else {
-        // Stop spinner and set final name
         setIsGenerating(false);
         const finalName = generateRandomName();
         setProjectName(finalName);
@@ -54,135 +49,145 @@ export function InitialSetup({ onConfirm }: InitialSetupProps) {
   };
 
   return (
-    <ArcaneBackground>
-      <div className="min-h-screen flex items-center justify-center p-4 sm:p-6">
-        <div className="w-full max-w-4xl mx-auto">
+    <div className="min-h-screen bg-[#05080a] grid-bg noise-bg relative overflow-hidden">
+      <div className="crt-overlay" />
 
-          {/* Hero Section */}
-          <div className="text-center mb-10">
-            <h1 className="font-cinzel text-4xl sm:text-5xl font-bold text-[#d4a843] text-gold-shimmer mb-4 tracking-wide">
-              ThisProjectDoesNotExist
+      {/* Ambient glow spots */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#00ff9d]/[0.02] rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#00b8ff]/[0.02] rounded-full blur-[120px] pointer-events-none" />
+
+      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-4 sm:p-6">
+        <div className="w-full max-w-2xl mx-auto">
+
+          {/* Header */}
+          <div className="text-center mb-12 animate-[fade-in-up_0.6s_ease-out]">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[rgba(0,255,157,0.15)] bg-[rgba(0,255,157,0.05)] mb-6">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#00ff9d] animate-pulse" />
+              <span className="text-[#00ff9d] text-xs font-mono uppercase tracking-wider">system online</span>
+            </div>
+
+            <h1 className="font-display text-5xl sm:text-6xl font-800 text-white mb-4 tracking-tight leading-none">
+              <span className="text-[#00ff9d] glow-green">this</span>project<br />
+              does<span className="text-[#4a6274]">not</span>exist
             </h1>
-            <ArcaneDivider className="my-5 mx-auto" />
-            <p className="text-[#e8dcc8] text-lg italic opacity-80">
-              Conjure websites from nothing but imagination
+
+            <p className="text-[#4a6274] text-base font-mono max-w-md mx-auto">
+              name a project. navigate to any url. watch websites materialize from nothing.
             </p>
           </div>
 
-          {/* 3 Rune Stones */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
+          {/* How it works - minimal inline */}
+          <div className="flex items-center justify-center gap-6 sm:gap-8 mb-10 animate-[fade-in-up_0.6s_0.1s_ease-out_both]">
             {[
-              { icon: Feather, label: "Inscribe", description: "Name your creation" },
-              { icon: Sparkles, label: "Conjure", description: "Navigate to summon pages" },
-              { icon: BookOpen, label: "Bind", description: "Export your grimoire" },
-            ].map(({ icon: Icon, label, description }) => (
-              <div
-                key={label}
-                className="bg-[#1e1233]/60 backdrop-blur rounded-xl p-6 text-center border border-[rgba(139,92,246,0.15)] hover:border-[rgba(212,168,67,0.3)] hover:shadow-[0_0_20px_rgba(212,168,67,0.1)] transition-all duration-500 group"
-              >
-                <div className="w-12 h-12 rounded-full bg-[#2a1845] flex items-center justify-center mx-auto mb-3 group-hover:shadow-[0_0_15px_rgba(212,168,67,0.3)] transition-shadow duration-500">
-                  <Icon className="w-5 h-5 text-[#d4a843]" />
+              { icon: Terminal, label: "name it" },
+              { icon: Zap, label: "navigate" },
+              { icon: Download, label: "export" },
+            ].map(({ icon: Icon, label }, i) => (
+              <div key={label} className="flex items-center gap-4">
+                <div className="flex items-center gap-2 text-[#4a6274]">
+                  <Icon className="w-4 h-4 text-[#00ff9d]/60" />
+                  <span className="text-xs font-mono">{label}</span>
                 </div>
-                <h3 className="font-cinzel text-[#f0c75e] font-bold text-sm mb-1">{label}</h3>
-                <p className="text-[#9a8c7a] text-xs">{description}</p>
+                {i < 2 && <span className="text-[#00ff9d]/20 text-xs">//</span>}
               </div>
             ))}
           </div>
 
-          {/* Conjuring Form */}
-          <Card className="bg-[#1e1233]/80 backdrop-blur-sm border-[rgba(139,92,246,0.15)] shadow-2xl">
-            <CardHeader className="text-center pb-4">
-              <CardTitle className="font-cinzel text-2xl text-[#f0c75e]">
-                The Conjuring Circle
-              </CardTitle>
-              <CardDescription className="text-[#9a8c7a]">
-                Name your creation and whisper your requirements
-              </CardDescription>
-            </CardHeader>
+          {/* Main form card */}
+          <div className="animate-[fade-in-up_0.6s_0.2s_ease-out_both]">
+            <div className="bg-[#0a1018]/80 backdrop-blur-sm border border-[rgba(0,255,157,0.1)] rounded-lg overflow-hidden glow-box-green">
+              {/* Terminal title bar */}
+              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[rgba(0,255,157,0.08)] bg-[#0a1018]">
+                <div className="flex gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#ff3e3e]/60" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#ffd700]/60" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#00ff9d]/60" />
+                </div>
+                <span className="text-[#4a6274] text-xs font-mono ml-2">fabricate.exe</span>
+              </div>
 
-            <CardContent className="space-y-6">
-              {/* Name Oracle */}
-              <div className="space-y-2">
-                <label htmlFor="project-name" className="text-sm text-[#e8dcc8] rune-label block">
-                  Project Oracle
-                </label>
-                {isGenerating ? (
-                  <div className="h-11 flex items-center justify-center border border-dashed border-[rgba(139,92,246,0.3)] rounded-md bg-[#2a1845]/50">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-[#d4a843] rounded-full animate-pulse"></div>
-                      <div className="w-2 h-2 bg-[#d4a843] rounded-full animate-pulse animation-delay-100"></div>
-                      <div className="w-2 h-2 bg-[#d4a843] rounded-full animate-pulse animation-delay-200"></div>
-                      <span className="ml-3 text-[#e8dcc8] font-medium animate-[fade-in-left_0.3s_ease-out]" key={currentSpinnerName}>
-                        {currentSpinnerName || "Divining..."}
+              <div className="p-6 space-y-5">
+                {/* Project name */}
+                <div className="space-y-2">
+                  <label htmlFor="project-name" className="text-xs text-[#4a6274] font-mono uppercase tracking-wider block">
+                    project_name
+                  </label>
+                  {isGenerating ? (
+                    <div className="h-11 flex items-center px-4 border border-dashed border-[rgba(0,255,157,0.15)] rounded-md bg-[#0f1923]/60">
+                      <span className="text-[#00ff9d]/40 mr-2 font-mono">{'>'}</span>
+                      <span className="text-[#c8d6e5] font-mono animate-[fade-in_0.2s_ease-out]" key={currentSpinnerName}>
+                        {currentSpinnerName || "scanning..."}
                       </span>
+                      <span className="ml-1 w-2 h-5 bg-[#00ff9d] animate-[terminal-blink_0.8s_step-end_infinite]" />
                     </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="flex space-x-2">
-                      <Input
-                        id="project-name"
-                        value={projectName}
-                        onChange={(e) => setProjectName(e.target.value)}
-                        placeholder="Enter your project name"
-                        className="flex-1 h-11 text-base bg-[#2a1845]/50 border-[rgba(139,92,246,0.2)] text-[#e8dcc8] placeholder:text-[#9a8c7a]/60 focus:border-[#d4a843] focus:shadow-[0_0_10px_rgba(212,168,67,0.15)] transition-all duration-300"
-                      />
+                  ) : (
+                    <div className="flex gap-2">
+                      <div className="flex-1 relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#00ff9d]/40 font-mono">{'>'}</span>
+                        <Input
+                          id="project-name"
+                          value={projectName}
+                          onChange={(e) => setProjectName(e.target.value)}
+                          placeholder="enter project name"
+                          className="pl-7 h-11 text-base bg-[#0f1923]/60 border-[rgba(0,255,157,0.12)] text-[#c8d6e5] placeholder:text-[#4a6274]/50 focus:border-[#00ff9d]/40 focus:shadow-[0_0_10px_rgba(0,255,157,0.1)] transition-all duration-300 font-mono"
+                          onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
+                        />
+                      </div>
                       <Button
                         type="button"
                         onClick={handleRegenerateProject}
                         variant="outline"
-                        className="h-11 px-3 bg-[#2a1845]/50 border-[rgba(139,92,246,0.2)] text-[#d4a843] hover:bg-[#2a1845] hover:border-[#d4a843]/50 hover:shadow-[0_0_10px_rgba(212,168,67,0.15)] transition-all duration-300"
+                        className="h-11 w-11 p-0 bg-[#0f1923]/60 border-[rgba(0,255,157,0.12)] text-[#00ff9d]/60 hover:text-[#00ff9d] hover:bg-[#0f1923] hover:border-[#00ff9d]/30 transition-all duration-300"
                       >
                         <RotateCw className="w-4 h-4" />
                       </Button>
                     </div>
-                    <p className="text-xs text-[#9a8c7a]">
-                      Click the rune to divine a new project type
-                    </p>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
 
-              {/* Incantation Details */}
-              <div className="space-y-2">
-                <label htmlFor="instructions" className="text-sm text-[#e8dcc8] rune-label block">
-                  Incantation Details <span className="text-[#9a8c7a]/60 font-normal normal-case tracking-normal">(Optional)</span>
-                </label>
-                <Textarea
-                  id="instructions"
-                  value={instructions}
-                  onChange={(e) => setInstructions(e.target.value)}
-                  placeholder="Describe your vision and the spirits shall obey..."
-                  className="min-h-[100px] text-base bg-[#2a1845]/50 border-[rgba(139,92,246,0.2)] text-[#e8dcc8] placeholder:text-[#9a8c7a]/60 focus:border-[#d4a843] focus:shadow-[0_0_10px_rgba(212,168,67,0.15)] resize-none transition-all duration-300"
-                  disabled={isGenerating}
-                />
-              </div>
-            </CardContent>
+                {/* Instructions */}
+                <div className="space-y-2">
+                  <label htmlFor="instructions" className="text-xs text-[#4a6274] font-mono uppercase tracking-wider block">
+                    instructions <span className="text-[#4a6274]/40 normal-case">(optional)</span>
+                  </label>
+                  <Textarea
+                    id="instructions"
+                    value={instructions}
+                    onChange={(e) => setInstructions(e.target.value)}
+                    placeholder="describe what you want the site to be like..."
+                    className="min-h-[80px] text-sm bg-[#0f1923]/60 border-[rgba(0,255,157,0.12)] text-[#c8d6e5] placeholder:text-[#4a6274]/50 focus:border-[#00ff9d]/40 focus:shadow-[0_0_10px_rgba(0,255,157,0.1)] resize-none transition-all duration-300 font-mono"
+                    disabled={isGenerating}
+                  />
+                </div>
 
-            <CardFooter className="pt-4">
-              <Button
-                onClick={handleConfirm}
-                disabled={isGenerating || !projectName.trim()}
-                className="w-full h-12 text-base font-cinzel font-bold bg-gradient-to-r from-[#d4a843] to-[#f0c75e] text-[#0a0612] border-0 shadow-[0_0_20px_rgba(212,168,67,0.3)] hover:shadow-[0_0_30px_rgba(212,168,67,0.5)] transition-all duration-500 disabled:opacity-40"
-              >
-                {isGenerating ? (
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 border-2 border-[#0a0612] border-t-transparent rounded-full animate-spin"></div>
-                    <span>Divining...</span>
-                  </div>
-                ) : (
-                  "Begin Conjuration"
-                )}
-              </Button>
-            </CardFooter>
-          </Card>
+                {/* Submit */}
+                <Button
+                  onClick={handleConfirm}
+                  disabled={isGenerating || !projectName.trim()}
+                  className="w-full h-11 text-sm font-mono font-semibold bg-[#00ff9d] text-[#05080a] hover:bg-[#00ff9d]/90 hover:shadow-[0_0_20px_rgba(0,255,157,0.3)] transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed group"
+                >
+                  {isGenerating ? (
+                    <span className="flex items-center gap-2">
+                      <div className="w-3.5 h-3.5 border-2 border-[#05080a] border-t-transparent rounded-full animate-spin" />
+                      scanning...
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      fabricate
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                    </span>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
 
           {/* Footer */}
-          <p className="text-center text-[#9a8c7a] text-sm mt-8 rune-label">
-            Instant Conjuration · Session-Based · No Data Stored
+          <p className="text-center text-[#4a6274]/40 text-xs font-mono mt-8 animate-[fade-in_1s_0.5s_ease-out_both]">
+            instant generation // session-based // nothing is stored
           </p>
         </div>
       </div>
-    </ArcaneBackground>
+    </div>
   );
 }

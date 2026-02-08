@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { InitialSetup } from "@/components/InitialSetup";
 import { DynamicPageRenderer } from "@/components/DynamicPageRenderer";
 import ExportPage from "@/components/ExportPage";
-import { RuneCircle } from "@/components/arcane/RuneCircle";
 
 interface ProjectConfig {
   name: string;
@@ -15,7 +14,6 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Load project config from localStorage on app start
   useEffect(() => {
     const savedConfig = localStorage.getItem('projectConfig');
     if (savedConfig) {
@@ -37,7 +35,7 @@ function App() {
       setProjectConfig(config);
       localStorage.setItem('projectConfig', JSON.stringify(config));
       setIsTransitioning(false);
-    }, 500);
+    }, 400);
   };
 
   const handleReset = () => {
@@ -45,36 +43,39 @@ function App() {
     localStorage.removeItem('projectConfig');
   };
 
-  // Show loading while checking for saved config
   if (isLoading) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ background: "radial-gradient(ellipse at center, #1a0a2e 0%, #0a0612 70%)" }}
-      >
-        <div className="text-center">
-          <RuneCircle size={60} className="mx-auto mb-6" />
-          <p className="font-cinzel text-[#e8dcc8] text-sm">Preparing the grimoire...</p>
+      <div className="min-h-screen flex items-center justify-center bg-[#05080a] grid-bg">
+        <div className="crt-overlay" />
+        <div className="text-center animate-[fade-in_0.5s_ease-out]">
+          <div className="flex items-center justify-center gap-1 mb-4">
+            {[0,1,2,3,4].map(i => (
+              <div
+                key={i}
+                className="w-1 bg-[#00ff9d] rounded-full"
+                style={{
+                  animation: `signal-bar 1s ${i * 0.15}s ease-in-out infinite`,
+                  height: '12px'
+                }}
+              />
+            ))}
+          </div>
+          <p className="font-mono text-[#4a6274] text-sm">initializing...</p>
         </div>
       </div>
     );
   }
 
-  // If no project config is set, show the initial setup
   if (!projectConfig) {
     return (
-      <div
-        className={isTransitioning ? "animate-[book-open_0.5s_ease-out_forwards]" : ""}
-        style={isTransitioning ? { transformOrigin: "center center" } : undefined}
-      >
+      <div className={isTransitioning ? "animate-[fade-in_0.4s_ease-out_reverse_forwards]" : ""}>
         <InitialSetup onConfirm={handleConfirm} />
       </div>
     );
   }
 
-  // Once project is configured, show the dynamic page renderer with routing
   return (
-    <div className="animate-[fade-in_0.5s_ease-out]">
+    <div className="animate-[fade-in_0.4s_ease-out]">
       <Router>
         <Routes>
           <Route path="/export" element={<ExportPage />} />

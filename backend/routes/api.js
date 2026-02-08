@@ -129,108 +129,84 @@ router.get('/session/:sessionId', (req, res) => {
 // Generate fallback error page
 function generateErrorPage(errorMessage, projectName) {
   return `<!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generation Error - ${projectName}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
+    <title>Error - ${projectName}</title>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #0a0612 0%, #1a0a2e 100%);
-            color: #e8dcc8;
+            font-family: 'IBM Plex Mono', monospace;
+            background: #05080a;
+            color: #c8d6e5;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 2rem;
         }
-
         .error-container {
-            background: #1e1233;
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
-            border: 1px solid rgba(139, 92, 246, 0.2);
-            padding: 3rem;
-            max-width: 600px;
-            text-align: center;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            background: #0a1018;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 62, 62, 0.15);
+            max-width: 500px;
+            overflow: hidden;
         }
-
-        .error-icon {
-            width: 80px;
-            height: 80px;
-            background: linear-gradient(135deg, #7c3aed, #8b5cf6);
-            border-radius: 50%;
+        .title-bar {
             display: flex;
             align-items: center;
-            justify-content: center;
-            margin: 0 auto 2rem;
+            gap: 6px;
+            padding: 10px 16px;
+            border-bottom: 1px solid rgba(255, 62, 62, 0.1);
+            background: #0a1018;
         }
-
-        .error-icon svg {
-            width: 40px;
-            height: 40px;
-            color: white;
-        }
-
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .dot-red { background: rgba(255, 62, 62, 0.6); }
+        .dot-yellow { background: rgba(255, 215, 0, 0.6); }
+        .dot-green { background: rgba(0, 255, 157, 0.6); }
+        .title-text { color: #4a6274; font-size: 12px; margin-left: 8px; }
+        .content { padding: 2rem; }
         h1 {
-            font-family: 'Cinzel', serif;
-            font-size: 2rem;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            color: #ff3e3e;
             margin-bottom: 1rem;
-            color: #f0c75e;
         }
-
-        .error-message {
-            color: #e8dcc8;
-            margin-bottom: 2rem;
-            line-height: 1.6;
-        }
-
-        .error-message p code {
-            background: #2a1845;
-        }
-
-        .retry-info {
-            background: rgba(212, 168, 67, 0.1);
-            border: 1px solid #d4a843;
+        .error-msg {
+            background: #0f1923;
+            border: 1px solid rgba(255, 62, 62, 0.1);
             border-radius: 8px;
             padding: 1rem;
-            margin-top: 2rem;
+            font-size: 0.8rem;
+            color: #c8d6e5;
+            margin: 1rem 0;
+            word-break: break-word;
         }
-
-        .retry-info p {
-            color: #d4a843;
-            font-size: 0.9rem;
+        .hint {
+            background: rgba(0, 255, 157, 0.05);
+            border: 1px solid rgba(0, 255, 157, 0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            color: #00ff9d;
+            font-size: 0.8rem;
         }
     </style>
 </head>
 <body>
     <div class="error-container">
-        <div class="error-icon">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-            </svg>
+        <div class="title-bar">
+            <div class="dot dot-red"></div>
+            <div class="dot dot-yellow"></div>
+            <div class="dot dot-green"></div>
+            <span class="title-text">error.log</span>
         </div>
-
-        <h1>The Conjuration Failed</h1>
-
-        <div class="error-message">
-            <p>We encountered an issue while generating this page for <strong>${projectName}</strong>.</p>
-            <p style="margin-top: 1rem; font-family: monospace; background: #2a1845; padding: 1rem; border-radius: 6px; font-size: 0.85rem;">
-                ${errorMessage}
-            </p>
-        </div>
-
-        <div class="retry-info">
-            <p>The spirits may be resting. Try refreshing or conjuring a different page.</p>
+        <div class="content">
+            <h1>fabrication failed</h1>
+            <p style="color: #4a6274; margin-bottom: 1rem;">could not generate page for <strong style="color: #c8d6e5;">${projectName}</strong></p>
+            <div class="error-msg">${errorMessage}</div>
+            <div class="hint">try refreshing or navigating to a different path.</div>
         </div>
     </div>
 </body>

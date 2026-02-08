@@ -276,7 +276,7 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
           onReset={handleReset}
         />
         <OrnateBorder thin />
-        <div className="flex-1 w-full ml-80">
+        <div className="flex-1 w-full ml-0 md:ml-80">
           {/* Gold spine divider */}
           <div className="fixed left-80 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-[#d4a843]/30 to-transparent z-30 animate-[pulse-glow_4s_ease-in-out_infinite]" style={{ boxShadow: '0 0 8px rgba(212, 168, 67, 0.1)' }}></div>
           <div
@@ -318,7 +318,7 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
         onReset={handleReset}
       />
       <OrnateBorder thin />
-      <div className="flex-1 w-full ml-80">
+      <div className="flex-1 w-full ml-0 md:ml-80">
         {/* Gold spine divider */}
         <div className="fixed left-80 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-[#d4a843]/30 to-transparent z-30" style={{ boxShadow: '0 0 8px rgba(212, 168, 67, 0.1)' }}></div>
         {currentContent ? (

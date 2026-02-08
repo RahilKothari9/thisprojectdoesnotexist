@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { ArrowRight, BookX } from "lucide-react";
+import { ArrowRight, BookX, Menu, X } from "lucide-react";
 
 interface SessionViewProps {
   projectName: string;
@@ -19,6 +19,7 @@ interface SessionViewProps {
 export function SessionView({ projectName, visitedPages, onEndSession, onInstructionsChange, initialInstructions = "", isLoading = false, onReset }: SessionViewProps) {
   const [customUrl, setCustomUrl] = useState("");
   const [customInstructions, setCustomInstructions] = useState(initialInstructions);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -26,12 +27,14 @@ export function SessionView({ projectName, visitedPages, onEndSession, onInstruc
     if (customUrl.trim()) {
       const url = customUrl.startsWith('/') ? customUrl : `/${customUrl}`;
       navigate(url);
+      setIsDrawerOpen(false);
       setCustomUrl("");
     }
   };
 
   const handleQuickNav = (url: string) => {
     navigate(url);
+    setIsDrawerOpen(false);
   };
 
   const handleInstructionsChange = (value: string) => {
@@ -40,8 +43,31 @@ export function SessionView({ projectName, visitedPages, onEndSession, onInstruc
   };
 
   return (
-    <div className="fixed left-0 top-0 h-full w-80 bg-[#1e1233]/95 backdrop-blur-sm border-r border-[rgba(212,168,67,0.15)] p-4 overflow-y-auto z-20">
-      <div className="space-y-5">
+    <>
+      {/* Mobile toggle button */}
+      <button
+        onClick={() => setIsDrawerOpen(!isDrawerOpen)}
+        className="fixed top-4 left-4 z-40 md:hidden w-10 h-10 rounded-lg bg-[#1e1233]/90 backdrop-blur border border-[rgba(212,168,67,0.2)] flex items-center justify-center text-[#d4a843] hover:bg-[#2a1845] transition-colors"
+      >
+        {isDrawerOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+      </button>
+
+      {/* Backdrop for mobile */}
+      {isDrawerOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-20 md:hidden"
+          onClick={() => setIsDrawerOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div className={`
+        fixed top-0 h-full w-80 bg-[#1e1233]/95 backdrop-blur-sm border-r border-[rgba(212,168,67,0.15)] p-4 overflow-y-auto z-30
+        transition-transform duration-300 ease-in-out
+        ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:translate-x-0 md:left-0
+      `}>
+        <div className="space-y-5">
 
         {/* Chapter Title */}
         <div>
@@ -162,5 +188,6 @@ export function SessionView({ projectName, visitedPages, onEndSession, onInstruc
         </div>
       </div>
     </div>
+    </>
   );
 }

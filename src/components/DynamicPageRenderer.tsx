@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { SessionView } from "./SessionView";
 
@@ -36,7 +36,6 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
   const [customInstructions, setCustomInstructions] = useState(projectConfig.instructions);
   const [activeRequests, setActiveRequests] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const isFirstLoad = useRef(true);
 
   const handleInstructionsChange = (instructions: string) => {
     setCustomInstructions(instructions);
@@ -55,12 +54,6 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
 
     if (currentPath === '/end') {
       handleEndSession();
-      return;
-    }
-
-    // Don't auto-generate on initial load — let user choose where to go
-    if (isFirstLoad.current) {
-      isFirstLoad.current = false;
       return;
     }
 

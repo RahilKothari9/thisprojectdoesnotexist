@@ -15,16 +15,8 @@ function App() {
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   useEffect(() => {
-    const savedConfig = localStorage.getItem('projectConfig');
-    if (savedConfig) {
-      try {
-        const parsed = JSON.parse(savedConfig);
-        setProjectConfig(parsed);
-      } catch (error) {
-        console.error('Failed to parse saved project config:', error);
-        localStorage.removeItem('projectConfig');
-      }
-    }
+    // Always start fresh with the setup page
+    localStorage.removeItem('projectConfig');
     setIsLoading(false);
   }, []);
 

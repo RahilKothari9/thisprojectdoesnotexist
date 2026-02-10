@@ -103,36 +103,39 @@ app.use('*', (req, res) => {
 // Error handling middleware (must be last)
 app.use(errorHandler);
 
-// Graceful shutdown handling
-process.on('SIGTERM', () => {
-  console.log('[server] SIGTERM received, shutting down...');
-  process.exit(0);
-});
+// Graceful shutdown handling (local dev only)
+if (!process.env.VERCEL) {
+  process.on('SIGTERM', () => {
+    console.log('[server] SIGTERM received, shutting down...');
+    process.exit(0);
+  });
 
-process.on('SIGINT', () => {
-  console.log('[server] SIGINT received, shutting down...');
-  process.exit(0);
-});
+  process.on('SIGINT', () => {
+    console.log('[server] SIGINT received, shutting down...');
+    process.exit(0);
+  });
+}
 
-// Start server
-const server = app.listen(PORT, () => {
-  console.log('[server] ThisProjectDoesNotExist');
-  console.log(`[server] port: ${PORT}`);
-  console.log(`[server] env: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`[server] api: http://localhost:${PORT}/api`);
-  console.log(`[server] frontend: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
-  console.log(`[server] gemini: ${process.env.GEMINI_API_KEY ? 'configured' : 'MISSING API KEY'}`);
-  console.log('[server] ready');
-});
+// Only start the server when running locally (not on Vercel serverless)
+if (!process.env.VERCEL) {
+  const server = app.listen(PORT, () => {
+    console.log('[server] ThisProjectDoesNotExist');
+    console.log(`[server] port: ${PORT}`);
+    console.log(`[server] env: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`[server] api: http://localhost:${PORT}/api`);
+    console.log(`[server] frontend: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
+    console.log(`[server] gemini: ${process.env.GEMINI_API_KEY ? 'configured' : 'MISSING API KEY'}`);
+    console.log('[server] ready');
+  });
 
-// Handle server errors
-server.on('error', (error) => {
-  if (error.code === 'EADDRINUSE') {
-    console.error(`[error] port ${PORT} is already in use`);
-  } else {
-    console.error('[error] server error:', error);
-  }
-  process.exit(1);
-});
+  server.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`[error] port ${PORT} is already in use`);
+    } else {
+      console.error('[error] server error:', error);
+    }
+    process.exit(1);
+  });
+}
 
 module.exports = app;

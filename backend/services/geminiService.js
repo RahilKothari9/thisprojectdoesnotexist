@@ -56,7 +56,7 @@ class GeminiService {
         contents: pagePrompt,
         config: {
           thinkingConfig: { thinkingLevel: "minimal" },
-          maxOutputTokens: 4096,
+          maxOutputTokens: 16384,
           temperature: 0.9,
         }
       });
@@ -116,8 +116,19 @@ Output ONLY the HTML. No markdown fences. No explanation.`;
       cleaned = '<!DOCTYPE html>\n' + cleaned;
     }
 
-    const required = ['<html', '</html>', '<head>', '</head>', '<body>', '</body>'];
-    for (const tag of required) {
+    // Repair truncated HTML instead of throwing
+    if (!cleaned.includes('</body>')) {
+      console.warn('[validate] missing </body>, appending');
+      cleaned += '\n</body>';
+    }
+    if (!cleaned.includes('</html>')) {
+      console.warn('[validate] missing </html>, appending');
+      cleaned += '\n</html>';
+    }
+
+    // Only throw for truly broken content (missing opening structure)
+    const critical = ['<html', '<head>', '<body>'];
+    for (const tag of critical) {
       if (!cleaned.includes(tag)) {
         console.error(`[validate] FAIL: missing ${tag}`);
         throw new Error(`Generated content is missing ${tag}`);

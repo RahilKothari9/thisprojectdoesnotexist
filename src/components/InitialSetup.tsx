@@ -28,8 +28,6 @@ export function InitialSetup({ onConfirm }: InitialSetupProps) {
         currentIndex++;
       } else {
         setIsGenerating(false);
-        const finalName = generateRandomName();
-        setProjectName(finalName);
         setCurrentSpinnerName("");
         clearInterval(interval);
       }
@@ -72,7 +70,7 @@ export function InitialSetup({ onConfirm }: InitialSetupProps) {
             </h1>
 
             <p className="text-[#4a6274] text-base font-mono max-w-md mx-auto">
-              name a project. navigate to any url. watch websites materialize from nothing.
+              type any topic. navigate to any url. watch websites materialize from nothing.
             </p>
           </div>
 
@@ -128,7 +126,7 @@ export function InitialSetup({ onConfirm }: InitialSetupProps) {
                           id="project-name"
                           value={projectName}
                           onChange={(e) => setProjectName(e.target.value)}
-                          placeholder="enter project name"
+                          placeholder="a café, a startup, a band, anything..."
                           className="pl-7 h-11 text-base bg-[#0f1923]/60 border-[rgba(0,255,157,0.12)] text-[#c8d6e5] placeholder:text-[#4a6274]/50 focus:border-[#00ff9d]/40 focus:shadow-[0_0_10px_rgba(0,255,157,0.1)] transition-all duration-300 font-mono"
                           onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
                         />

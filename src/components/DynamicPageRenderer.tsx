@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { SessionView } from "./SessionView";
 
@@ -35,6 +35,8 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
   const [sessionStartTime] = useState(new Date());
   const [customInstructions, setCustomInstructions] = useState(projectConfig.instructions);
   const [activeRequests, setActiveRequests] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+  const isFirstLoad = useRef(true);
 
   const handleInstructionsChange = (instructions: string) => {
     setCustomInstructions(instructions);
@@ -56,6 +58,12 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
       return;
     }
 
+    // Don't auto-generate on initial load — let user choose where to go
+    if (isFirstLoad.current) {
+      isFirstLoad.current = false;
+      return;
+    }
+
     if (!visitedPages.includes(currentPath)) {
       setVisitedPages(prev => [...prev, currentPath]);
     }
@@ -63,6 +71,7 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
     if (pageCache[currentPath]) {
       console.log(`Using cached content for: ${currentPath}`);
       setCurrentContent(pageCache[currentPath]);
+      setError(null);
       setIsLoading(false);
       return;
     }
@@ -74,6 +83,7 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
 
     console.log(`Fetching new content for: ${currentPath}`);
     setIsLoading(true);
+    setError(null);
     setActiveRequests(prev => new Set([...prev, currentPath]));
 
     const fetchPageContent = async () => {
@@ -88,7 +98,7 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
         setGenerationPrompts(prev => [...prev, `[${new Date().toISOString()}] ${prompt}`]);
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
 
         const response = await fetch(`/api/generate`, {
           method: 'POST',
@@ -116,32 +126,31 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
           }));
 
           setCurrentContent(htmlContent);
+          setError(null);
           setIsLoading(false);
-          setActiveRequests(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(currentPath);
-            return newSet;
-          });
         } else {
-          throw new Error(`Backend API error: ${response.status}`);
+          const text = await response.text();
+          throw new Error(text.includes('fabrication failed') ? 'Generation failed — the AI returned incomplete content. Try again.' : `Server error (${response.status})`);
         }
-      } catch (error) {
-        console.error('Error generating page:', error);
+      } catch (err) {
+        console.error('Error generating page:', err);
+        setIsLoading(false);
+        if (err instanceof Error && err.name === 'AbortError') {
+          setError('Request timed out. The AI took too long to respond.');
+        } else {
+          setError(err instanceof Error ? err.message : 'Failed to generate page. Check your connection.');
+        }
+      } finally {
         setActiveRequests(prev => {
           const newSet = new Set(prev);
           newSet.delete(currentPath);
           return newSet;
         });
-        if (error instanceof Error && error.name === 'AbortError') {
-          console.log('Request timed out, still waiting for backend...');
-        } else {
-          console.log('Backend connection issue, retrying...');
-        }
       }
     };
 
     fetchPageContent();
-  }, [location.pathname, projectConfig.name, projectConfig.instructions, customInstructions, sessionStartTime]);
+  }, [location.pathname]);
 
   const handleDownload = (downloadType: string, sessionData: any) => {
     switch (downloadType) {
@@ -286,6 +295,30 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
               </p>
             </div>
           </div>
+        ) : error ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="text-center max-w-sm animate-[fade-in_0.3s_ease-out]">
+              <div className="w-16 h-16 mx-auto mb-6 rounded-xl border border-[rgba(255,62,62,0.2)] bg-[#0a1018] flex items-center justify-center">
+                <span className="text-[#ff3e3e]/60 text-2xl font-mono">!</span>
+              </div>
+              <h3 className="font-display text-lg text-[#ff3e3e] mb-2">generation failed</h3>
+              <p className="text-[#4a6274] text-sm font-mono mb-4">
+                {error}
+              </p>
+              <button
+                onClick={() => {
+                  setError(null);
+                  // Re-trigger by navigating to the same path
+                  const path = location.pathname;
+                  navigate('/');
+                  setTimeout(() => navigate(path), 10);
+                }}
+                className="px-4 py-2 text-sm font-mono bg-[#0f1923] border border-[rgba(0,255,157,0.15)] text-[#00ff9d] rounded-lg hover:bg-[#0f1923]/80 hover:border-[#00ff9d]/30 transition-all"
+              >
+                try again
+              </button>
+            </div>
+          </div>
         ) : currentContent ? (
           <div className="w-full h-full animate-[materialize_0.5s_ease-out]">
             <iframe
@@ -297,17 +330,14 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
           </div>
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <div className="text-center max-w-sm">
+            <div className="text-center max-w-md animate-[fade-in_0.5s_ease-out]">
               <div className="w-16 h-16 mx-auto mb-6 rounded-xl border border-[rgba(0,255,157,0.1)] bg-[#0a1018] flex items-center justify-center">
                 <span className="text-[#00ff9d]/30 text-2xl font-mono">/</span>
               </div>
-              <h3 className="font-display text-lg text-[#c8d6e5] mb-2">ready to fabricate</h3>
-              <p className="text-[#4a6274] text-sm font-mono mb-4">
-                use the command bar below to navigate to any path
+              <h3 className="font-display text-xl text-[#c8d6e5] mb-2">{projectConfig.name}</h3>
+              <p className="text-[#4a6274] text-sm font-mono mb-6">
+                use the command bar below to navigate to any path — try <code className="text-[#00ff9d]/60">/</code>, <code className="text-[#00ff9d]/60">/about</code>, <code className="text-[#00ff9d]/60">/pricing</code>, or anything you want
               </p>
-              <code className="text-[#00ff9d]/60 text-xs font-mono bg-[#0a1018] px-3 py-1.5 rounded border border-[rgba(0,255,157,0.08)]">
-                {location.pathname}
-              </code>
             </div>
           </div>
         )}

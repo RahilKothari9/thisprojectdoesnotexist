@@ -21,7 +21,6 @@ interface PageCache {
   [path: string]: string;
 }
 
-const PRELOAD_PAGES = ['/about', '/features', '/pricing', '/contact'];
 
 export function DynamicPageRenderer({ projectConfig, onReset, provider, onProviderChange, providerUsage, onProviderUsageUpdate }: DynamicPageRendererProps) {
   const location = useLocation();
@@ -36,7 +35,6 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
   const [error, setError] = useState<string | null>(null);
   const pageCacheRef = useRef<PageCache>({});
   const activeRequests = useRef<Set<string>>(new Set());
-  const preloadStarted = useRef(false);
   const providerRef = useRef(provider);
   const currentPathRef = useRef(location.pathname);
 
@@ -51,6 +49,28 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
   const handleReset = () => {
     onReset?.();
     navigate('/');
+  };
+
+  // Extract internal link paths from HTML
+  const extractLinks = (html: string): string[] => {
+    const links: string[] = [];
+    const regex = /href=["'](\/[^"'#?]*)["']/g;
+    let match;
+    while ((match = regex.exec(html)) !== null) {
+      const href = match[1];
+      if (href && !links.includes(href)) links.push(href);
+    }
+    return links;
+  };
+
+  // Silently preload any uncached links found in page HTML
+  const preloadLinkedPages = (html: string) => {
+    const links = extractLinks(html);
+    for (const link of links) {
+      if (!pageCacheRef.current[link] && !activeRequests.current.has(link)) {
+        fetchPage(link);
+      }
+    }
   };
 
   // Fetch a page from the backend
@@ -117,6 +137,9 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
           setError(null);
           setIsLoading(false);
         }
+
+        // Silently preload any internal links found in this page
+        preloadLinkedPages(html);
       } else if (response.status === 429) {
         try {
           const data = await response.json();
@@ -154,39 +177,6 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
     }
   };
 
-  // Silent background preload
-  const startPreloading = () => {
-    if (preloadStarted.current) return;
-    preloadStarted.current = true;
-
-    const sessionId = sessionStartTime.getTime();
-    let remaining = [...PRELOAD_PAGES];
-
-    const poll = async () => {
-      const still: string[] = [];
-      for (const path of remaining) {
-        if (pageCacheRef.current[path]) continue;
-        try {
-          const res = await fetch(`/api/cached/${providerRef.current}/${sessionId}${path}`);
-          if (res.ok) {
-            const html = await res.text();
-            pageCacheRef.current[path] = html;
-            setPageCache(prev => ({ ...prev, [path]: html }));
-          } else {
-            still.push(path);
-          }
-        } catch {
-          still.push(path);
-        }
-      }
-      remaining = still;
-      if (remaining.length > 0) {
-        setTimeout(poll, 2000);
-      }
-    };
-
-    setTimeout(poll, 3000);
-  };
 
   // Navigate: check cache first, then fetch on-demand
   useEffect(() => {
@@ -222,13 +212,6 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
       setCurrentContent(pageCacheRef.current[cp]);
       setError(null);
       setIsLoading(false);
-    }
-  }, [pageCache]);
-
-  // After homepage loads, start silent preloading
-  useEffect(() => {
-    if (pageCache['/'] && !preloadStarted.current) {
-      startPreloading();
     }
   }, [pageCache]);
 

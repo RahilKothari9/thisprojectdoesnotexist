@@ -51,24 +51,16 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
     navigate('/');
   };
 
-  // Extract internal link paths from HTML
-  const extractLinks = (html: string): string[] => {
-    const links: string[] = [];
+  const fetchPageRef = useRef<(path: string) => Promise<void>>(null!);
+
+  // Extract internal link paths from HTML and preload uncached ones
+  const preloadLinkedPages = (html: string) => {
     const regex = /href=["'](\/[^"'#?]*)["']/g;
     let match;
     while ((match = regex.exec(html)) !== null) {
       const href = match[1];
-      if (href && !links.includes(href)) links.push(href);
-    }
-    return links;
-  };
-
-  // Silently preload any uncached links found in page HTML
-  const preloadLinkedPages = (html: string) => {
-    const links = extractLinks(html);
-    for (const link of links) {
-      if (!pageCacheRef.current[link] && !activeRequests.current.has(link)) {
-        fetchPage(link);
+      if (href && !pageCacheRef.current[href] && !activeRequests.current.has(href)) {
+        fetchPageRef.current?.(href);
       }
     }
   };
@@ -176,7 +168,7 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
       }
     }
   };
-
+  fetchPageRef.current = fetchPage;
 
   // Navigate: check cache first, then fetch on-demand
   useEffect(() => {

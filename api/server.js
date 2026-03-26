@@ -4,6 +4,11 @@ let app;
 
 export const maxDuration = 60;
 
+// Enable response streaming for SSE support on Vercel
+export const config = {
+  supportsResponseStreaming: true,
+};
+
 export default async function handler(req, res) {
   if (!app) {
     const mod = await import('../backend/server.js');

@@ -1,6 +1,5 @@
 const rateLimit = require('express-rate-limit');
 
-// Rate limiting middleware
 const createRateLimit = (windowMs, max, message) => {
   return rateLimit({
     windowMs,
@@ -16,56 +15,43 @@ const createRateLimit = (windowMs, max, message) => {
 
 // General API rate limit
 const generalLimiter = createRateLimit(
-  15 * 60 * 1000, // 15 minutes
-  100, // limit each IP to 100 requests per windowMs
+  15 * 60 * 1000,
+  100,
   'Too many requests from this IP, please try again later.'
 );
 
-// Strict rate limit for generation endpoint
-const generationLimiter = createRateLimit(
-  5 * 60 * 1000, // 5 minutes
-  10, // limit each IP to 10 generation requests per 5 minutes
-  'Too many page generation requests. Please wait before requesting more pages.'
+// Rate limit for site generation (each generates 6 Gemini calls)
+const siteLimiter = createRateLimit(
+  5 * 60 * 1000,
+  3,
+  'Too many site generation requests. Please wait before generating again.'
 );
 
-// Validation middleware
-const validateGenerationRequest = (req, res, next) => {
-  const { path, project, sessionId } = req.body;
+// Validation for generate-site endpoint
+const validateSiteRequest = (req, res, next) => {
+  const { project, sessionId } = req.body;
 
-  // Validate required fields
-  if (!path || !project || !sessionId) {
+  if (!project || !sessionId) {
     return res.status(400).json({
       error: 'Missing required fields',
-      required: ['path', 'project', 'sessionId']
+      required: ['project', 'sessionId']
     });
   }
 
-  // Validate path format
-  if (!path.startsWith('/')) {
-    return res.status(400).json({
-      error: 'Path must start with /'
-    });
-  }
-
-  // Validate project name
   if (typeof project !== 'string' || project.trim().length === 0) {
     return res.status(400).json({
       error: 'Project name must be a non-empty string'
     });
   }
 
-  // Validate sessionId
   if (typeof sessionId !== 'number' || sessionId <= 0) {
     return res.status(400).json({
       error: 'SessionId must be a positive number'
     });
   }
 
-  // Sanitize inputs
-  req.body.path = path.trim();
   req.body.project = project.trim();
   req.body.instructions = req.body.instructions ? req.body.instructions.trim() : '';
-  req.body.prompt = req.body.prompt ? req.body.prompt.trim() : '';
 
   next();
 };
@@ -74,7 +60,6 @@ const validateGenerationRequest = (req, res, next) => {
 const errorHandler = (err, req, res, next) => {
   console.error('[error] API error:', err);
 
-  // Handle Gemini API errors
   if (err.message && err.message.includes('API key')) {
     return res.status(500).json({
       error: 'AI service configuration error',
@@ -82,7 +67,6 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Handle rate limiting errors
   if (err.status === 429) {
     return res.status(429).json({
       error: 'Rate limit exceeded',
@@ -90,7 +74,6 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Handle validation errors
   if (err.name === 'ValidationError') {
     return res.status(400).json({
       error: 'Validation error',
@@ -98,7 +81,6 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Default error response
   res.status(500).json({
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
@@ -108,18 +90,18 @@ const errorHandler = (err, req, res, next) => {
 // Request logging middleware
 const requestLogger = (req, res, next) => {
   const start = Date.now();
-  
+
   res.on('finish', () => {
     const duration = Date.now() - start;
     const status = res.statusCode;
     const method = req.method;
     const url = req.originalUrl;
     const ip = req.ip || req.connection.remoteAddress;
-    
+
     const tag = status >= 400 ? 'ERR' : status >= 300 ? 'REDIR' : 'OK';
     console.log(`[${tag}] ${method} ${url} - ${status} - ${duration}ms - ${ip}`);
   });
-  
+
   next();
 };
 
@@ -134,8 +116,8 @@ const securityHeaders = (req, res, next) => {
 
 module.exports = {
   generalLimiter,
-  generationLimiter,
-  validateGenerationRequest,
+  siteLimiter,
+  validateSiteRequest,
   errorHandler,
   requestLogger,
   securityHeaders

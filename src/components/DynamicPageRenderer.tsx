@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { SessionView } from "./SessionView";
 
@@ -16,41 +16,145 @@ interface PageCache {
   [path: string]: string;
 }
 
-interface SessionData {
-  projectConfig: ProjectConfig;
-  visitedPages: string[];
-  pageCache: PageCache;
-  generationPrompts: string[];
-  sessionStartTime: Date;
-}
+type GenerationPhase = 'connecting' | 'design-system' | 'pages' | 'done' | 'error';
+
+const SITE_PAGES = ['/', '/about', '/features', '/pricing', '/contact'];
 
 export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRendererProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [pageCache, setPageCache] = useState<PageCache>({});
-  const [isLoading, setIsLoading] = useState(false);
   const [currentContent, setCurrentContent] = useState<string>("");
   const [visitedPages, setVisitedPages] = useState<string[]>([]);
   const [generationPrompts, setGenerationPrompts] = useState<string[]>([]);
   const [sessionStartTime] = useState(new Date());
-  const [customInstructions, setCustomInstructions] = useState(projectConfig.instructions);
-  const [activeRequests, setActiveRequests] = useState<Set<string>>(new Set());
-  const [error, setError] = useState<string | null>(null);
+  const [phase, setPhase] = useState<GenerationPhase>('connecting');
+  const [pagesReady, setPagesReady] = useState(0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const pageCacheRef = useRef<PageCache>({});
+  const hasStarted = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const handleInstructionsChange = (instructions: string) => {
-    setCustomInstructions(instructions);
-  };
+  // Handle SSE events — called from the stream parser
+  const handleSSEEvent = (eventType: string, data: any) => {
+    switch (eventType) {
+      case 'design-system':
+        console.log('[sse] design system received');
+        setPhase('pages');
+        break;
 
-  const handleReset = () => {
-    if (onReset) {
-      onReset();
+      case 'page': {
+        const { path, html, pagesReady: ready } = data;
+        console.log(`[sse] page ready: ${path}`);
+        setPagesReady(ready);
+
+        pageCacheRef.current[path] = html;
+        setPageCache(prev => ({ ...prev, [path]: html }));
+
+        // Auto-show homepage as soon as it arrives
+        if (path === '/') {
+          setCurrentContent(html);
+          setVisitedPages(prev => prev.includes('/') ? prev : [...prev, '/']);
+        }
+        break;
+      }
+
+      case 'error':
+        console.error('[sse] error:', data);
+        if (data.phase === 'design-system') {
+          setPhase('error');
+          setErrorMessage('Failed to generate design system. Try again.');
+        }
+        break;
+
+      case 'done':
+        console.log(`[sse] done: ${data.totalPages}/${data.totalRequested} pages`);
+        setPhase('done');
+        break;
     }
-    navigate('/');
   };
 
+  // Start site generation on mount
+  useEffect(() => {
+    if (hasStarted.current) return;
+    hasStarted.current = true;
+
+    const generateSite = async () => {
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      setPhase('design-system');
+      setGenerationPrompts(prev => [
+        ...prev,
+        `[${new Date().toISOString()}] Generating full site for "${projectConfig.name}"`
+      ]);
+
+      try {
+        const response = await fetch('/api/generate-site', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project: projectConfig.name,
+            instructions: projectConfig.instructions,
+            sessionId: sessionStartTime.getTime()
+          }),
+          signal: controller.signal
+        });
+
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status}`);
+        }
+
+        // Parse SSE stream inline to avoid stale closure issues
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error('No response body');
+
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          const events = buffer.split('\n\n');
+          buffer = events.pop() || '';
+
+          for (const eventStr of events) {
+            if (!eventStr.trim()) continue;
+            let eventType = '';
+            let eventData = '';
+            for (const line of eventStr.split('\n')) {
+              if (line.startsWith('event: ')) eventType = line.slice(7);
+              else if (line.startsWith('data: ')) eventData = line.slice(6);
+            }
+            if (!eventType || !eventData) continue;
+            try {
+              handleSSEEvent(eventType, JSON.parse(eventData));
+            } catch (e) {
+              console.warn('[sse] parse error:', e);
+            }
+          }
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        console.error('[generate] failed:', err);
+        setPhase('error');
+        setErrorMessage(err instanceof Error ? err.message : 'Failed to generate site.');
+      }
+    };
+
+    generateSite();
+
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  // Handle navigation between cached pages
   useEffect(() => {
     const currentPath = location.pathname;
-    console.log(`Navigation to: ${currentPath}`);
 
     if (currentPath === '/end') {
       handleEndSession();
@@ -61,99 +165,60 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
       setVisitedPages(prev => [...prev, currentPath]);
     }
 
-    if (pageCache[currentPath]) {
-      console.log(`Using cached content for: ${currentPath}`);
-      setCurrentContent(pageCache[currentPath]);
-      setError(null);
-      setIsLoading(false);
-      return;
+    // Check ref for immediate access (state may lag)
+    const cached = pageCacheRef.current[currentPath];
+    if (cached) {
+      setCurrentContent(cached);
+      setErrorMessage(null);
+    } else {
+      setCurrentContent('');
     }
+  }, [location.pathname, pageCache]);
 
-    if (activeRequests.has(currentPath)) {
-      console.log(`Request already in progress for: ${currentPath}`);
-      return;
-    }
-
-    console.log(`Fetching new content for: ${currentPath}`);
-    setIsLoading(true);
-    setError(null);
-    setActiveRequests(prev => new Set([...prev, currentPath]));
-
-    const fetchPageContent = async () => {
-      try {
-        const allInstructions = [
-          projectConfig.instructions,
-          customInstructions
-        ].filter(Boolean).join(' ');
-
-        const prompt = `Generate a ${currentPath === '/' ? 'homepage' : currentPath.replace('/', '') + ' page'} for project "${projectConfig.name}". ${allInstructions ? `Additional context: ${allInstructions}` : ''}`;
-
-        setGenerationPrompts(prev => [...prev, `[${new Date().toISOString()}] ${prompt}`]);
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000);
-
-        const response = await fetch(`/api/generate`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            path: currentPath,
-            project: projectConfig.name,
-            instructions: allInstructions,
-            customInstructions: customInstructions,
-            sessionId: sessionStartTime.getTime()
-          }),
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (response.ok) {
-          const htmlContent = await response.text();
-
-          setPageCache(prev => ({
-            ...prev,
-            [currentPath]: htmlContent
-          }));
-
-          setCurrentContent(htmlContent);
-          setError(null);
-          setIsLoading(false);
-        } else {
-          const text = await response.text();
-          throw new Error(text.includes('fabrication failed') ? 'Generation failed — the AI returned incomplete content. Try again.' : `Server error (${response.status})`);
-        }
-      } catch (err) {
-        console.error('Error generating page:', err);
-        setIsLoading(false);
-        if (err instanceof Error && err.name === 'AbortError') {
-          setError('Request timed out. The AI took too long to respond.');
-        } else {
-          setError(err instanceof Error ? err.message : 'Failed to generate page. Check your connection.');
-        }
-      } finally {
-        setActiveRequests(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(currentPath);
-          return newSet;
-        });
+  // Listen for postMessage navigation from iframes
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data.type === 'navigate') {
+        navigate(event.data.path);
+      } else if (event.data.type === 'download') {
+        handleDownload(event.data.downloadType, event.data.data);
       }
     };
 
-    fetchPageContent();
-  }, [location.pathname]);
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [navigate]);
+
+  const handleRetry = () => {
+    window.location.reload();
+  };
+
+  const handleReset = () => {
+    abortRef.current?.abort();
+    onReset?.();
+    navigate('/');
+  };
+
+  const handleEndSession = () => {
+    const sessionData = {
+      projectConfig,
+      visitedPages,
+      pageCache: pageCacheRef.current,
+      generationPrompts,
+      sessionStartTime
+    };
+    localStorage.setItem('exportSessionData', JSON.stringify(sessionData));
+    navigate('/export');
+  };
 
   const handleDownload = (downloadType: string, sessionData: any) => {
     switch (downloadType) {
-      case 'projectFiles':
-        const zip = Object.entries(sessionData.pageCache).map(([path, content]) => {
-          const filename = path === '/' ? 'index.html' : path.replace('/', '') + '.html';
-          return { filename, content: content as string };
-        });
-
-        zip.forEach(file => {
+      case 'projectFiles': {
+        const files = Object.entries(sessionData.pageCache).map(([path, content]) => ({
+          filename: path === '/' ? 'index.html' : path.replace('/', '') + '.html',
+          content: content as string
+        }));
+        files.forEach(file => {
           const blob = new Blob([file.content], { type: 'text/html' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
@@ -163,15 +228,15 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
           URL.revokeObjectURL(url);
         });
         break;
-
-      case 'promptLog':
+      }
+      case 'promptLog': {
         const logContent = [
           "ThisProjectDoesNotExist - Generation Log",
           "=".repeat(50),
-          "Project: " + sessionData.projectConfig.name,
-          "Instructions: " + (sessionData.projectConfig.instructions || "None"),
-          "Session Start: " + sessionData.sessionStartTime,
-          "Total Pages: " + sessionData.visitedPages.length,
+          `Project: ${sessionData.projectConfig.name}`,
+          `Instructions: ${sessionData.projectConfig.instructions || "None"}`,
+          `Session Start: ${sessionData.sessionStartTime}`,
+          `Total Pages: ${sessionData.visitedPages.length}`,
           "",
           "Prompts:",
           ...sessionData.generationPrompts,
@@ -179,86 +244,91 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
           "Pages:",
           ...sessionData.visitedPages.map((page: string) => "- " + page),
         ].join("\n");
-
-        const logBlob = new Blob([logContent], { type: 'text/plain' });
-        const logUrl = URL.createObjectURL(logBlob);
-        const logA = document.createElement('a');
-        logA.href = logUrl;
-        logA.download = sessionData.projectConfig.name.replace(/\s+/g, '_') + '_log.txt';
-        logA.click();
-        URL.revokeObjectURL(logUrl);
+        const blob = new Blob([logContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = sessionData.projectConfig.name.replace(/\s+/g, '_') + '_log.txt';
+        a.click();
+        URL.revokeObjectURL(url);
         break;
-
-      case 'fullSession':
-        const sessionBlob = new Blob([JSON.stringify(sessionData, null, 2)], { type: 'application/json' });
-        const sessionUrl = URL.createObjectURL(sessionBlob);
-        const sessionA = document.createElement('a');
-        sessionA.href = sessionUrl;
-        sessionA.download = sessionData.projectConfig.name.replace(/\s+/g, '_') + '_session.json';
-        sessionA.click();
-        URL.revokeObjectURL(sessionUrl);
+      }
+      case 'fullSession': {
+        const blob = new Blob([JSON.stringify(sessionData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = sessionData.projectConfig.name.replace(/\s+/g, '_') + '_session.json';
+        a.click();
+        URL.revokeObjectURL(url);
         break;
-
-      default:
-        console.error('Unknown download type:', downloadType);
+      }
     }
   };
 
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data.type === 'navigate') {
-        const { path } = event.data;
-        console.log(`Received navigation message for: ${path}`);
-        navigate(path);
-      } else if (event.data.type === 'download') {
-        const { downloadType, data } = event.data;
-        console.log(`Received download message for: ${downloadType}`);
-        handleDownload(downloadType, data);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [navigate]);
-
-  const handleEndSession = () => {
-    const sessionData: SessionData = {
-      projectConfig,
-      visitedPages,
-      pageCache,
-      generationPrompts,
-      sessionStartTime
-    };
-    localStorage.setItem('exportSessionData', JSON.stringify(sessionData));
-    navigate('/export');
-  };
+  const isGenerating = phase !== 'done' && phase !== 'error';
+  // Show content as soon as the current path is cached, even during generation
+  const showContent = !!pageCacheRef.current[location.pathname];
 
   return (
     <div className="h-screen w-full bg-[#05080a] relative overflow-hidden">
       <div className="crt-overlay" />
 
-      {/* Current path indicator - top bar */}
+      {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-4 py-2.5 bg-[#0a1018]/80 backdrop-blur-sm border-b border-[rgba(0,255,157,0.06)]">
         <div className="flex items-center gap-3">
           <span className="text-[#00ff9d]/40 text-xs font-mono">GET</span>
           <code className="text-[#c8d6e5] text-sm font-mono">
             {location.pathname === '/' ? '/' : location.pathname}
           </code>
-          {isLoading && (
+          {isGenerating && (
             <div className="flex items-center gap-1.5 ml-2">
               <div className="w-1.5 h-1.5 rounded-full bg-[#ffd700] animate-pulse" />
-              <span className="text-[#ffd700] text-xs font-mono">generating</span>
+              <span className="text-[#ffd700] text-xs font-mono">
+                {phase === 'design-system' ? 'design system' : `${pagesReady}/${SITE_PAGES.length} pages`}
+              </span>
+            </div>
+          )}
+          {phase === 'done' && (
+            <div className="flex items-center gap-1.5 ml-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#00ff9d]" />
+              <span className="text-[#00ff9d] text-xs font-mono">{SITE_PAGES.length} pages ready</span>
             </div>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[#4a6274] text-xs font-mono">{visitedPages.length} pages</span>
+          <span className="text-[#4a6274] text-xs font-mono">{Object.keys(pageCache).length} cached</span>
         </div>
       </div>
 
-      {/* Main content area - full screen */}
+      {/* Main content */}
       <div className="w-full h-full pt-10 pb-20">
-        {isLoading ? (
+        {showContent && currentContent ? (
+          <div className="w-full h-full animate-[materialize_0.5s_ease-out]">
+            <iframe
+              srcDoc={currentContent}
+              className="w-full h-full border-0"
+              title={`${projectConfig.name} - Page Content`}
+              sandbox="allow-same-origin allow-scripts allow-downloads"
+            />
+          </div>
+        ) : phase === 'error' ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="text-center max-w-sm animate-[fade-in_0.3s_ease-out]">
+              <div className="w-16 h-16 mx-auto mb-6 rounded-xl border border-[rgba(255,62,62,0.2)] bg-[#0a1018] flex items-center justify-center">
+                <span className="text-[#ff3e3e]/60 text-2xl font-mono">!</span>
+              </div>
+              <h3 className="font-display text-lg text-[#ff3e3e] mb-2">generation failed</h3>
+              <p className="text-[#4a6274] text-sm font-mono mb-4">{errorMessage}</p>
+              <button
+                onClick={handleRetry}
+                className="px-4 py-2 text-sm font-mono bg-[#0f1923] border border-[rgba(0,255,157,0.15)] text-[#00ff9d] rounded-lg hover:bg-[#0f1923]/80 hover:border-[#00ff9d]/30 transition-all"
+              >
+                try again
+              </button>
+            </div>
+          </div>
+        ) : isGenerating ? (
           <div className="w-full h-full flex items-center justify-center">
             <div className="text-center max-w-sm animate-[fade-in_0.3s_ease-out]">
               {/* Signal bars loader */}
@@ -276,52 +346,46 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
               </div>
 
               <div className="bg-[#0a1018]/80 border border-[rgba(0,255,157,0.1)] rounded-lg px-5 py-3 mb-4 font-mono">
-                <span className="text-[#00ff9d]/40">fabricating </span>
-                <span className="text-[#c8d6e5]">
-                  {location.pathname === '/' ? 'index' : location.pathname.replace('/', '')}
-                </span>
+                {phase === 'design-system' ? (
+                  <>
+                    <span className="text-[#00ff9d]/40">crafting </span>
+                    <span className="text-[#c8d6e5]">design system</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[#00ff9d]/40">building </span>
+                    <span className="text-[#c8d6e5]">{pagesReady}/{SITE_PAGES.length} pages</span>
+                  </>
+                )}
                 <span className="text-[#00ff9d] animate-[terminal-blink_0.8s_step-end_infinite] ml-0.5">_</span>
               </div>
 
+              {/* Page progress pills */}
+              {phase === 'pages' && (
+                <div className="flex justify-center gap-2 mb-4">
+                  {SITE_PAGES.map(path => (
+                    <div
+                      key={path}
+                      className={`px-2 py-1 text-[10px] font-mono rounded transition-all duration-300 ${
+                        pageCache[path]
+                          ? 'bg-[#00ff9d]/15 text-[#00ff9d] border border-[#00ff9d]/30'
+                          : 'bg-[#0f1923]/40 text-[#4a6274] border border-[#4a6274]/20'
+                      }`}
+                    >
+                      {path === '/' ? 'home' : path.replace('/', '')}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <p className="text-[#4a6274] text-xs font-mono">
-                the ai is generating your page...
+                {phase === 'design-system'
+                  ? 'creating a unified look for your site...'
+                  : 'generating all pages in parallel...'}
               </p>
             </div>
           </div>
-        ) : error ? (
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="text-center max-w-sm animate-[fade-in_0.3s_ease-out]">
-              <div className="w-16 h-16 mx-auto mb-6 rounded-xl border border-[rgba(255,62,62,0.2)] bg-[#0a1018] flex items-center justify-center">
-                <span className="text-[#ff3e3e]/60 text-2xl font-mono">!</span>
-              </div>
-              <h3 className="font-display text-lg text-[#ff3e3e] mb-2">generation failed</h3>
-              <p className="text-[#4a6274] text-sm font-mono mb-4">
-                {error}
-              </p>
-              <button
-                onClick={() => {
-                  setError(null);
-                  // Re-trigger by navigating to the same path
-                  const path = location.pathname;
-                  navigate('/');
-                  setTimeout(() => navigate(path), 10);
-                }}
-                className="px-4 py-2 text-sm font-mono bg-[#0f1923] border border-[rgba(0,255,157,0.15)] text-[#00ff9d] rounded-lg hover:bg-[#0f1923]/80 hover:border-[#00ff9d]/30 transition-all"
-              >
-                try again
-              </button>
-            </div>
-          </div>
-        ) : currentContent ? (
-          <div className="w-full h-full animate-[materialize_0.5s_ease-out]">
-            <iframe
-              srcDoc={currentContent}
-              className="w-full h-full border-0"
-              title={`${projectConfig.name} - Page Content`}
-              sandbox="allow-same-origin allow-scripts allow-downloads"
-            />
-          </div>
-        ) : (
+        ) : !currentContent ? (
           <div className="w-full h-full flex items-center justify-center">
             <div className="text-center max-w-md animate-[fade-in_0.5s_ease-out]">
               <div className="w-16 h-16 mx-auto mb-6 rounded-xl border border-[rgba(0,255,157,0.1)] bg-[#0a1018] flex items-center justify-center">
@@ -329,11 +393,11 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
               </div>
               <h3 className="font-display text-xl text-[#c8d6e5] mb-2">{projectConfig.name}</h3>
               <p className="text-[#4a6274] text-sm font-mono mb-6">
-                use the command bar below to navigate to any path — try <code className="text-[#00ff9d]/60">/</code>, <code className="text-[#00ff9d]/60">/about</code>, <code className="text-[#00ff9d]/60">/pricing</code>, or anything you want
+                page not found in cache — navigate to one of the generated pages
               </p>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Floating command bar */}
@@ -341,10 +405,10 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
         projectName={projectConfig.name}
         visitedPages={visitedPages}
         onEndSession={handleEndSession}
-        onInstructionsChange={handleInstructionsChange}
-        initialInstructions={customInstructions}
-        isLoading={isLoading}
+        isLoading={isGenerating}
         onReset={handleReset}
+        pageCache={pageCache}
+        sitePages={SITE_PAGES}
       />
     </div>
   );

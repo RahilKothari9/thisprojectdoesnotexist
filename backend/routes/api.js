@@ -1,50 +1,103 @@
 const express = require('express');
 const GeminiService = require('../services/geminiService');
+const CerebrasService = require('../services/cerebrasService');
 const { validateGenerateRequest, generationLimiter } = require('../middleware');
 
 const router = express.Router();
-const geminiService = new GeminiService(process.env.GEMINI_API_KEY);
+
+// Initialize both providers
+const gemini = new GeminiService(process.env.GEMINI_API_KEY);
+const cerebras = new CerebrasService(process.env.CEREBRAS_API_KEY);
+
+function getProvider(name) {
+  if (name === 'cerebras') return cerebras;
+  return gemini;
+}
 
 // Health check
 router.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 
-// Generate a single page (used for homepage + on-demand pages)
+// Get provider usage/limits
+router.get('/providers', (req, res) => {
+  const cerebrasLimits = cerebras.getRateLimits();
+  res.json({
+    gemini: {
+      id: 'gemini',
+      name: 'Gemini',
+      model: 'gemini-3.1-flash-lite-preview',
+      available: !!process.env.GEMINI_API_KEY,
+      // Gemini doesn't return granular rate limit headers — track client-side
+      usage: null,
+    },
+    cerebras: {
+      id: 'cerebras',
+      name: 'Cerebras',
+      model: 'zai-glm-4.7',
+      available: !!process.env.CEREBRAS_API_KEY,
+      usage: {
+        requestsPerDay: cerebrasLimits.requestsPerDay,
+        tokensPerMinute: cerebrasLimits.tokensPerMinute,
+      },
+    }
+  });
+});
+
+// Generate a single page
 router.post('/generate',
   generationLimiter,
   validateGenerateRequest,
   async (req, res) => {
-    const { path, project, instructions = '', sessionId } = req.body;
-    console.log(`[api] generate: ${path} for ${project}`);
+    const { path, project, instructions = '', sessionId, provider = 'gemini' } = req.body;
+    console.log(`[api] generate: ${path} for ${project} via ${provider}`);
+
+    const service = getProvider(provider);
 
     try {
-      // Single call — generates page. First page also establishes design system.
-      const html = await geminiService.generatePage(
+      const html = await service.generatePage(
         sessionId.toString(), path, project, instructions
       );
 
-      // After homepage, silently preload the other 4 nav pages in background
+      // After homepage, silently preload
       if (path === '/') {
-        geminiService.preloadPages(sessionId.toString(), project, instructions);
+        service.preloadPages(sessionId.toString(), project, instructions);
+      }
+
+      // Return usage info in response header for Cerebras
+      if (provider === 'cerebras') {
+        const limits = cerebras.getRateLimits();
+        res.setHeader('X-Provider-Usage', JSON.stringify(limits));
       }
 
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.send(html);
     } catch (error) {
-      console.error(`[error] generate failed for ${path}:`, error);
+      console.error(`[error] generate failed for ${path} via ${provider}:`, error.message);
+
+      // If rate limited, return usage info so frontend can update
+      if (error.status === 429 && provider === 'cerebras') {
+        const limits = cerebras.getRateLimits();
+        return res.status(429).json({
+          error: 'Rate limit exceeded',
+          provider,
+          usage: limits,
+        });
+      }
+
       res.status(500).setHeader('Content-Type', 'text/html; charset=utf-8');
       res.send(generateErrorPage(error.message, project));
     }
   }
 );
 
-// Check if a page is cached (for silent preload polling)
-router.get('/cached/:sessionId/:path(*)',
+// Check if a page is cached
+router.get('/cached/:provider/:sessionId/:path(*)',
   (req, res) => {
-    const { sessionId } = req.params;
+    const { provider, sessionId } = req.params;
     const path = '/' + (req.params.path || '');
-    const session = geminiService.getSession(sessionId);
+    const service = getProvider(provider);
+    const session = service.getSession(sessionId);
     const cacheKey = `${path}:${session.context.projectName}`;
 
     if (session.context.pageCache.has(cacheKey)) {
@@ -58,9 +111,11 @@ router.get('/cached/:sessionId/:path(*)',
 
 // Get session info
 router.get('/session/:sessionId', (req, res) => {
-  const sessionInfo = geminiService.getSessionInfo(req.params.sessionId);
-  if (!sessionInfo) return res.status(404).json({ error: 'Session not found' });
-  res.json({ sessionId: req.params.sessionId, ...sessionInfo });
+  // Try both providers
+  const info = gemini.getSessionInfo(req.params.sessionId)
+    || cerebras.getSessionInfo(req.params.sessionId);
+  if (!info) return res.status(404).json({ error: 'Session not found' });
+  res.json({ sessionId: req.params.sessionId, ...info });
 });
 
 function generateErrorPage(errorMessage, projectName) {

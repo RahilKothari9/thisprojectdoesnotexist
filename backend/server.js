@@ -14,7 +14,10 @@ const {
 
 // Validate environment variables
 if (!process.env.GEMINI_API_KEY) {
-  console.warn('[warn] GEMINI_API_KEY is not set. AI generation will fail until configured.');
+  console.warn('[warn] GEMINI_API_KEY is not set.');
+}
+if (!process.env.CEREBRAS_API_KEY) {
+  console.warn('[warn] CEREBRAS_API_KEY is not set.');
 }
 
 const app = express();
@@ -124,7 +127,8 @@ if (!process.env.VERCEL) {
     console.log(`[server] env: ${process.env.NODE_ENV || 'development'}`);
     console.log(`[server] api: http://localhost:${PORT}/api`);
     console.log(`[server] frontend: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
-    console.log(`[server] gemini: ${process.env.GEMINI_API_KEY ? 'configured' : 'MISSING API KEY'}`);
+    console.log(`[server] gemini: ${process.env.GEMINI_API_KEY ? 'configured' : 'MISSING'}`);
+    console.log(`[server] cerebras: ${process.env.CEREBRAS_API_KEY ? 'configured' : 'MISSING'}`);
     console.log('[server] ready');
   });
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { InitialSetup } from "@/components/InitialSetup";
 import { DynamicPageRenderer } from "@/components/DynamicPageRenderer";
@@ -13,12 +13,32 @@ function App() {
   const [projectConfig, setProjectConfig] = useState<ProjectConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [provider, setProvider] = useState<string>('gemini');
+  const [providerUsage, setProviderUsage] = useState<Record<string, any>>({});
+  const providerRef = useRef(provider);
 
   useEffect(() => {
-    // Always start fresh with the setup page
     localStorage.removeItem('projectConfig');
     setIsLoading(false);
   }, []);
+
+  // Fetch provider info on mount and periodically
+  useEffect(() => {
+    const fetchProviders = async () => {
+      try {
+        const res = await fetch('/api/providers');
+        if (res.ok) setProviderUsage(await res.json());
+      } catch { /* silent */ }
+    };
+    fetchProviders();
+    const interval = setInterval(fetchProviders, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleProviderChange = (id: string) => {
+    setProvider(id);
+    providerRef.current = id;
+  };
 
   const handleConfirm = (name: string, instructions: string) => {
     const config = { name, instructions };
@@ -61,7 +81,12 @@ function App() {
   if (!projectConfig) {
     return (
       <div className={isTransitioning ? "animate-[fade-in_0.4s_ease-out_reverse_forwards]" : ""}>
-        <InitialSetup onConfirm={handleConfirm} />
+        <InitialSetup
+          onConfirm={handleConfirm}
+          provider={provider}
+          onProviderChange={handleProviderChange}
+          providerUsage={providerUsage}
+        />
       </div>
     );
   }
@@ -73,7 +98,16 @@ function App() {
           <Route path="/export" element={<ExportPage />} />
           <Route
             path="*"
-            element={<DynamicPageRenderer projectConfig={projectConfig} onReset={handleReset} />}
+            element={
+              <DynamicPageRenderer
+                projectConfig={projectConfig}
+                onReset={handleReset}
+                provider={provider}
+                onProviderChange={handleProviderChange}
+                providerUsage={providerUsage}
+                onProviderUsageUpdate={setProviderUsage}
+              />
+            }
           />
         </Routes>
       </Router>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { SessionView } from "./SessionView";
+import { ProviderToggle } from "./ProviderToggle";
 
 interface ProjectConfig {
   name: string;
@@ -10,6 +11,10 @@ interface ProjectConfig {
 interface DynamicPageRendererProps {
   projectConfig: ProjectConfig;
   onReset?: () => void;
+  provider: string;
+  onProviderChange: (id: string) => void;
+  providerUsage: Record<string, any>;
+  onProviderUsageUpdate: (usage: Record<string, any>) => void;
 }
 
 interface PageCache {
@@ -18,7 +23,7 @@ interface PageCache {
 
 const PRELOAD_PAGES = ['/about', '/features', '/pricing', '/contact'];
 
-export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRendererProps) {
+export function DynamicPageRenderer({ projectConfig, onReset, provider, onProviderChange, providerUsage, onProviderUsageUpdate }: DynamicPageRendererProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [pageCache, setPageCache] = useState<PageCache>({});
@@ -32,10 +37,14 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
   const pageCacheRef = useRef<PageCache>({});
   const activeRequests = useRef<Set<string>>(new Set());
   const preloadStarted = useRef(false);
+  const providerRef = useRef(provider);
 
   const handleInstructionsChange = (instructions: string) => {
     setCustomInstructions(instructions);
   };
+
+  // Keep ref in sync with prop
+  useEffect(() => { providerRef.current = provider; }, [provider]);
 
   const handleReset = () => {
     onReset?.();
@@ -56,7 +65,7 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
 
       setGenerationPrompts(prev => [
         ...prev,
-        `[${new Date().toISOString()}] Generate ${path} for "${projectConfig.name}"`
+        `[${new Date().toISOString()}] Generate ${path} via ${providerRef.current}`
       ]);
 
       const controller = new AbortController();
@@ -69,7 +78,8 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
           path,
           project: projectConfig.name,
           instructions: allInstructions,
-          sessionId: sessionStartTime.getTime()
+          sessionId: sessionStartTime.getTime(),
+          provider: providerRef.current,
         }),
         signal: controller.signal
       });
@@ -81,12 +91,35 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
         pageCacheRef.current[path] = html;
         setPageCache(prev => ({ ...prev, [path]: html }));
 
-        // If this is the page the user is currently viewing, show it
+        // Update usage from response header if Cerebras
+        const usageHeader = response.headers.get('X-Provider-Usage');
+        if (usageHeader) {
+          try {
+            const usage = JSON.parse(usageHeader);
+            onProviderUsageUpdate({
+              ...providerUsage,
+              cerebras: { ...providerUsage.cerebras, usage }
+            });
+          } catch { /* silent */ }
+        }
+
         if (location.pathname === path) {
           setCurrentContent(html);
           setError(null);
           setIsLoading(false);
         }
+      } else if (response.status === 429) {
+        // Rate limited — update provider usage and show error
+        try {
+          const data = await response.json();
+          if (data.usage) {
+            onProviderUsageUpdate({
+              ...providerUsage,
+              [data.provider]: { ...providerUsage[data.provider], usage: data.usage }
+            });
+          }
+        } catch { /* silent */ }
+        throw new Error('Rate limit exceeded. Try switching providers.');
       } else {
         throw new Error(`Server error (${response.status})`);
       }
@@ -99,7 +132,6 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
       setIsLoading(false);
     } finally {
       activeRequests.current.delete(path);
-      // Only clear loading if no more active requests for current page
       if (!activeRequests.current.has(location.pathname)) {
         setIsLoading(false);
       }
@@ -121,7 +153,7 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
       for (const path of remaining) {
         if (pageCacheRef.current[path]) continue;
         try {
-          const res = await fetch(`/api/cached/${sessionId}${path}`);
+          const res = await fetch(`/api/cached/${providerRef.current}/${sessionId}${path}`);
           if (res.ok) {
             const html = await res.text();
             pageCacheRef.current[path] = html;
@@ -277,9 +309,11 @@ export function DynamicPageRenderer({ projectConfig, onReset }: DynamicPageRende
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[#4a6274] text-xs font-mono">{visitedPages.length} pages</span>
-        </div>
+        <ProviderToggle
+          activeProvider={provider}
+          onProviderChange={onProviderChange}
+          providerUsage={providerUsage}
+        />
       </div>
 
       {/* Main content */}

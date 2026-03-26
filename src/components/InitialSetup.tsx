@@ -4,12 +4,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { generateRandomName } from "@/utils/nameGenerator";
 import { RotateCw, ArrowRight, Terminal, Zap, Download } from "lucide-react";
+import { ProviderToggle } from "./ProviderToggle";
 
 interface InitialSetupProps {
   onConfirm: (name: string, instructions: string) => void;
+  provider: string;
+  onProviderChange: (id: string) => void;
+  providerUsage: Record<string, any>;
 }
 
-export function InitialSetup({ onConfirm }: InitialSetupProps) {
+export function InitialSetup({ onConfirm, provider, onProviderChange, providerUsage }: InitialSetupProps) {
   const [projectName, setProjectName] = useState("");
   const [instructions, setInstructions] = useState("");
   const [isGenerating, setIsGenerating] = useState(true);
@@ -61,7 +65,11 @@ export function InitialSetup({ onConfirm }: InitialSetupProps) {
           <div className="text-center mb-12 animate-[fade-in-up_0.6s_ease-out]">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[rgba(0,255,157,0.15)] bg-[rgba(0,255,157,0.05)] mb-6">
               <div className="w-1.5 h-1.5 rounded-full bg-[#00ff9d] animate-pulse" />
-              <span className="text-[#00ff9d] text-xs font-mono uppercase tracking-wider">system online</span>
+              <ProviderToggle
+                activeProvider={provider}
+                onProviderChange={onProviderChange}
+                providerUsage={providerUsage}
+              />
             </div>
 
             <h1 className="font-display text-5xl sm:text-6xl font-800 text-white mb-4 tracking-tight leading-none">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { SessionView } from "./SessionView";
 import { ProviderToggle } from "./ProviderToggle";
@@ -21,28 +21,27 @@ interface PageCache {
   [path: string]: string;
 }
 
-
 export function DynamicPageRenderer({ projectConfig, onReset, provider, onProviderChange, providerUsage, onProviderUsageUpdate }: DynamicPageRendererProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [pageCache, setPageCache] = useState<PageCache>({});
   const [isLoading, setIsLoading] = useState(false);
   const [currentContent, setCurrentContent] = useState<string>("");
   const [visitedPages, setVisitedPages] = useState<string[]>([]);
   const [generationPrompts, setGenerationPrompts] = useState<string[]>([]);
   const [sessionStartTime] = useState(new Date());
-  const [customInstructions, setCustomInstructions] = useState(projectConfig.instructions);
+  const [customInstructions, setCustomInstructions] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const pageCacheRef = useRef<PageCache>({});
-  const activeRequests = useRef<Set<string>>(new Set());
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Refs to avoid stale closures in async callbacks
   const providerRef = useRef(provider);
   const providerUsageRef = useRef(providerUsage);
-  const currentPathRef = useRef(location.pathname);
-
-  // Keep refs in sync
+  const customInstructionsRef = useRef(customInstructions);
   useEffect(() => { providerRef.current = provider; }, [provider]);
   useEffect(() => { providerUsageRef.current = providerUsage; }, [providerUsage]);
-  useEffect(() => { currentPathRef.current = location.pathname; }, [location.pathname]);
+  useEffect(() => { customInstructionsRef.current = customInstructions; }, [customInstructions]);
 
   const handleInstructionsChange = (instructions: string) => {
     setCustomInstructions(instructions);
@@ -53,64 +52,56 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
     navigate('/');
   };
 
-  const fetchPageRef = useRef<(path: string) => Promise<void>>(null!);
-
-  // Extract internal link paths from HTML and preload uncached ones
-  const preloadLinkedPages = (html: string) => {
-    const regex = /href=["'](\/[^"'#?]*)["']/g;
-    let match;
-    while ((match = regex.exec(html)) !== null) {
-      const href = match[1];
-      if (href && !pageCacheRef.current[href] && !activeRequests.current.has(href)) {
-        fetchPageRef.current?.(href);
-      }
-    }
-  };
-
-  // Fetch a page from the backend
-  const fetchPage = async (path: string) => {
-    if (pageCacheRef.current[path] || activeRequests.current.has(path)) return;
-
-    activeRequests.current.add(path);
-
-    // Only show loading spinner if this is the page the user is currently viewing
-    const isCurrentPage = currentPathRef.current === path;
-    if (isCurrentPage) {
-      setIsLoading(true);
+  // Standalone fetch function for retry button
+  const fetchPage = useCallback((path: string) => {
+    // Cache hit
+    if (pageCacheRef.current[path]) {
+      setCurrentContent(pageCacheRef.current[path]);
       setError(null);
+      setIsLoading(false);
+      return;
     }
 
-    try {
-      const allInstructions = [projectConfig.instructions, customInstructions]
-        .filter(Boolean).join(' ');
+    // Abort any in-flight request
+    abortRef.current?.abort();
 
-      setGenerationPrompts(prev => [
-        ...prev,
-        `[${new Date().toISOString()}] Generate ${path} via ${providerRef.current}`
-      ]);
+    setCurrentContent('');
+    setIsLoading(true);
+    setError(null);
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          path,
-          project: projectConfig.name,
-          instructions: allInstructions,
-          sessionId: sessionStartTime.getTime(),
-          provider: providerRef.current,
-        }),
-        signal: controller.signal
-      });
+    const allInstructions = [projectConfig.instructions, customInstructionsRef.current]
+      .filter((s, i, a) => s && a.indexOf(s) === i) // dedupe
+      .join(' ');
 
+    setGenerationPrompts(prev => [
+      ...prev,
+      `[${new Date().toISOString()}] Generate ${path} via ${providerRef.current}`
+    ]);
+
+    fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        path,
+        project: projectConfig.name,
+        instructions: allInstructions,
+        sessionId: sessionStartTime.getTime(),
+        provider: providerRef.current,
+      }),
+      signal: controller.signal
+    }).then(async (response) => {
       clearTimeout(timeoutId);
 
       if (response.ok) {
         const html = await response.text();
         pageCacheRef.current[path] = html;
-        setPageCache(prev => ({ ...prev, [path]: html }));
+        setCurrentContent(html);
+        setError(null);
+        setIsLoading(false);
 
         // Update usage from response header
         const usageHeader = response.headers.get('X-Provider-Usage');
@@ -118,23 +109,13 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
           try {
             const usage = JSON.parse(usageHeader);
             const pid = providerRef.current;
-            const current = providerUsageRef.current;
+            const cur = providerUsageRef.current;
             onProviderUsageUpdate({
-              ...current,
-              [pid]: { ...current[pid], usage }
+              ...cur,
+              [pid]: { ...cur[pid], usage }
             });
           } catch { /* silent */ }
         }
-
-        // Show content if user is STILL on this path (check ref, not closure)
-        if (currentPathRef.current === path) {
-          setCurrentContent(html);
-          setError(null);
-          setIsLoading(false);
-        }
-
-        // Silently preload any internal links found in this page
-        preloadLinkedPages(html);
       } else if (response.status === 429) {
         try {
           const data = await response.json();
@@ -146,78 +127,36 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
             });
           }
         } catch { /* silent */ }
-        if (currentPathRef.current === path) {
-          throw new Error('Rate limit exceeded. Try switching providers.');
-        }
+        setError('Rate limit exceeded. Try switching providers.');
+        setIsLoading(false);
       } else {
-        if (currentPathRef.current === path) {
-          throw new Error(`Server error (${response.status})`);
-        }
-      }
-    } catch (err) {
-      // Only show errors for the page the user is currently on
-      if (currentPathRef.current === path) {
-        if (err instanceof Error && err.name === 'AbortError') {
-          setError('Request timed out.');
-        } else {
-          setError(err instanceof Error ? err.message : 'Failed to generate page.');
-        }
+        setError(`Server error (${response.status})`);
         setIsLoading(false);
       }
-    } finally {
-      activeRequests.current.delete(path);
-      // Clear loading only if no active request for the current page
-      if (!activeRequests.current.has(currentPathRef.current)) {
-        setIsLoading(false);
-      }
-    }
-  };
-  fetchPageRef.current = fetchPage;
+    }).catch((err) => {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') return;
+      setError(err.message || 'Failed to generate page.');
+      setIsLoading(false);
+    });
+  }, [projectConfig, sessionStartTime, onProviderUsageUpdate]);
 
-  // Navigate: check cache first, then fetch on-demand
+  // On navigation: check cache, otherwise fetch
   useEffect(() => {
     const currentPath = location.pathname;
-
-    if (currentPath === '/end') {
-      handleEndSession();
-      return;
-    }
+    if (currentPath === '/end') { handleEndSession(); return; }
     if (currentPath === '/export') return;
 
     if (!visitedPages.includes(currentPath)) {
       setVisitedPages(prev => [...prev, currentPath]);
     }
 
-    // Cache hit — instant
-    if (pageCacheRef.current[currentPath]) {
-      setCurrentContent(pageCacheRef.current[currentPath]);
-      setError(null);
-      setIsLoading(false);
-      return;
-    }
-
-    // Already being fetched (preload in progress) — show loading, wait for it
-    if (activeRequests.current.has(currentPath)) {
-      setCurrentContent('');
-      setIsLoading(true);
-      return;
-    }
-
-    // Cache miss — generate on demand
-    setCurrentContent('');
     fetchPage(currentPath);
-  }, [location.pathname]);
 
-  // When pageCache updates (from preloading), always show current page if cached
-  useEffect(() => {
-    const cp = location.pathname;
-    const cached = pageCacheRef.current[cp];
-    if (cached) {
-      setCurrentContent(cached);
-      setError(null);
-      setIsLoading(false);
-    }
-  }, [pageCache, location.pathname]);
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, [location.pathname, retryCount]);
 
   // PostMessage navigation from iframes
   useEffect(() => {
@@ -313,10 +252,7 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
                   <div
                     key={i}
                     className="w-1.5 bg-[#00ff9d]/60 rounded-full"
-                    style={{
-                      animation: `signal-bar 0.8s ${i * 0.1}s ease-in-out infinite`,
-                      height: '8px'
-                    }}
+                    style={{ animation: `signal-bar 0.8s ${i * 0.1}s ease-in-out infinite`, height: '8px' }}
                   />
                 ))}
               </div>
@@ -339,7 +275,7 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
               <h3 className="font-display text-lg text-[#ff3e3e] mb-2">generation failed</h3>
               <p className="text-[#4a6274] text-sm font-mono mb-4">{error}</p>
               <button
-                onClick={() => { setError(null); fetchPage(location.pathname); }}
+                onClick={() => { setError(null); setRetryCount(c => c + 1); }}
                 className="px-4 py-2 text-sm font-mono bg-[#0f1923] border border-[rgba(0,255,157,0.15)] text-[#00ff9d] rounded-lg hover:bg-[#0f1923]/80 hover:border-[#00ff9d]/30 transition-all"
               >
                 try again

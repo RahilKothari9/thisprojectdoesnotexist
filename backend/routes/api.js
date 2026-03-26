@@ -62,10 +62,7 @@ router.post('/generate',
         sessionId.toString(), path, project, instructions
       );
 
-      // After homepage, silently preload
-      if (path === '/') {
-        service.preloadPages(sessionId.toString(), project, instructions);
-      }
+
 
       // Return usage info in response header
       const service_ref = provider === 'cerebras' ? cerebras : gemini;

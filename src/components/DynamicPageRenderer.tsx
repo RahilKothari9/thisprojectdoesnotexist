@@ -91,14 +91,15 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
         pageCacheRef.current[path] = html;
         setPageCache(prev => ({ ...prev, [path]: html }));
 
-        // Update usage from response header if Cerebras
+        // Update usage from response header
         const usageHeader = response.headers.get('X-Provider-Usage');
         if (usageHeader) {
           try {
             const usage = JSON.parse(usageHeader);
+            const pid = providerRef.current;
             onProviderUsageUpdate({
               ...providerUsage,
-              cerebras: { ...providerUsage.cerebras, usage }
+              [pid]: { ...providerUsage[pid], usage }
             });
           } catch { /* silent */ }
         }

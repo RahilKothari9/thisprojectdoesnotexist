@@ -6,7 +6,61 @@ class GeminiService {
   constructor(apiKey) {
     this.genAI = new GoogleGenAI({ apiKey });
     this.sessions = new Map();
+    // Self-tracked usage (Gemini doesn't return rate limit headers)
+    this.usage = {
+      requestsThisMinute: 0,
+      tokensThisMinute: 0,
+      requestsToday: 0,
+      tokensToday: 0,
+      lastMinuteReset: Date.now(),
+      lastDayReset: Date.now(),
+      limitExceeded: false,
+    };
+    // Reset minute counter every 60s
+    setInterval(() => {
+      this.usage.requestsThisMinute = 0;
+      this.usage.tokensThisMinute = 0;
+      this.usage.lastMinuteReset = Date.now();
+    }, 60000);
+    // Reset daily counter every 24h
+    setInterval(() => {
+      this.usage.requestsToday = 0;
+      this.usage.tokensToday = 0;
+      this.usage.lastDayReset = Date.now();
+      this.usage.limitExceeded = false;
+    }, 86400000);
     console.log('[gemini] service initialized');
+  }
+
+  getRateLimits() {
+    // Gemini free tier approximate limits for flash-lite
+    const RPM_LIMIT = 30;
+    const RPD_LIMIT = 1500;
+    return {
+      requestsPerMinute: {
+        limit: RPM_LIMIT,
+        remaining: Math.max(0, RPM_LIMIT - this.usage.requestsThisMinute),
+      },
+      requestsPerDay: {
+        limit: RPD_LIMIT,
+        remaining: this.usage.limitExceeded ? 0 : Math.max(0, RPD_LIMIT - this.usage.requestsToday),
+      },
+      tokensThisMinute: this.usage.tokensThisMinute,
+      tokensToday: this.usage.tokensToday,
+    };
+  }
+
+  trackRequest(response) {
+    this.usage.requestsThisMinute++;
+    this.usage.requestsToday++;
+    try {
+      const meta = response?.usageMetadata;
+      if (meta) {
+        const tokens = (meta.promptTokenCount || 0) + (meta.candidatesTokenCount || 0);
+        this.usage.tokensThisMinute += tokens;
+        this.usage.tokensToday += tokens;
+      }
+    } catch { /* silent */ }
   }
 
   getSession(sessionId) {
@@ -70,6 +124,8 @@ class GeminiService {
         }
       });
 
+      this.trackRequest(response);
+
       const rawContent = response.text;
       console.log(`[response] ${path} — ${rawContent.length} chars`);
 
@@ -89,6 +145,10 @@ class GeminiService {
       console.log(`[ok] ${path} (${cleanedHTML.length} chars)`);
       return cleanedHTML;
     } catch (error) {
+      if (error.status === 429 || error.message?.includes('429') || error.message?.includes('RESOURCE_EXHAUSTED')) {
+        this.usage.limitExceeded = true;
+        console.error(`[gemini][rate-limit] hit for ${path}`);
+      }
       console.error(`[error] generation failed for ${path}:`, error);
       throw error;
     }

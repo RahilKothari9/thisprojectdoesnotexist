@@ -21,6 +21,7 @@ router.get('/health', (req, res) => {
 
 // Get provider usage/limits
 router.get('/providers', (req, res) => {
+  const geminiLimits = gemini.getRateLimits();
   const cerebrasLimits = cerebras.getRateLimits();
   res.json({
     gemini: {
@@ -28,8 +29,10 @@ router.get('/providers', (req, res) => {
       name: 'Gemini',
       model: 'gemini-3.1-flash-lite-preview',
       available: !!process.env.GEMINI_API_KEY,
-      // Gemini doesn't return granular rate limit headers — track client-side
-      usage: null,
+      usage: {
+        requestsPerDay: geminiLimits.requestsPerDay,
+        tokensPerMinute: geminiLimits.requestsPerMinute,
+      },
     },
     cerebras: {
       id: 'cerebras',
@@ -64,11 +67,9 @@ router.post('/generate',
         service.preloadPages(sessionId.toString(), project, instructions);
       }
 
-      // Return usage info in response header for Cerebras
-      if (provider === 'cerebras') {
-        const limits = cerebras.getRateLimits();
-        res.setHeader('X-Provider-Usage', JSON.stringify(limits));
-      }
+      // Return usage info in response header
+      const service_ref = provider === 'cerebras' ? cerebras : gemini;
+      res.setHeader('X-Provider-Usage', JSON.stringify(service_ref.getRateLimits()));
 
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.send(html);
@@ -76,8 +77,8 @@ router.post('/generate',
       console.error(`[error] generate failed for ${path} via ${provider}:`, error.message);
 
       // If rate limited, return usage info so frontend can update
-      if (error.status === 429 && provider === 'cerebras') {
-        const limits = cerebras.getRateLimits();
+      if (error.status === 429 || error.message?.includes('429') || error.message?.includes('RESOURCE_EXHAUSTED')) {
+        const limits = service.getRateLimits();
         return res.status(429).json({
           error: 'Rate limit exceeded',
           provider,

@@ -192,6 +192,13 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
       return;
     }
 
+    // Already being fetched (preload in progress) — show loading, wait for it
+    if (activeRequests.current.has(currentPath)) {
+      setCurrentContent('');
+      setIsLoading(true);
+      return;
+    }
+
     // Cache miss — generate on demand
     setCurrentContent('');
     fetchPage(currentPath);

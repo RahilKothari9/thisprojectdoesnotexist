@@ -13,7 +13,7 @@ function App() {
   const [projectConfig, setProjectConfig] = useState<ProjectConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [provider, setProvider] = useState<string>('gemini');
+  const [provider, setProvider] = useState<string>('cerebras');
   const [providerUsage, setProviderUsage] = useState<Record<string, any>>({});
   const providerRef = useRef(provider);
 

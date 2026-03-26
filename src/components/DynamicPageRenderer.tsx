@@ -36,10 +36,12 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
   const pageCacheRef = useRef<PageCache>({});
   const activeRequests = useRef<Set<string>>(new Set());
   const providerRef = useRef(provider);
+  const providerUsageRef = useRef(providerUsage);
   const currentPathRef = useRef(location.pathname);
 
   // Keep refs in sync
   useEffect(() => { providerRef.current = provider; }, [provider]);
+  useEffect(() => { providerUsageRef.current = providerUsage; }, [providerUsage]);
   useEffect(() => { currentPathRef.current = location.pathname; }, [location.pathname]);
 
   const handleInstructionsChange = (instructions: string) => {
@@ -116,9 +118,10 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
           try {
             const usage = JSON.parse(usageHeader);
             const pid = providerRef.current;
+            const current = providerUsageRef.current;
             onProviderUsageUpdate({
-              ...providerUsage,
-              [pid]: { ...providerUsage[pid], usage }
+              ...current,
+              [pid]: { ...current[pid], usage }
             });
           } catch { /* silent */ }
         }
@@ -136,9 +139,10 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
         try {
           const data = await response.json();
           if (data.usage) {
+            const cur = providerUsageRef.current;
             onProviderUsageUpdate({
-              ...providerUsage,
-              [data.provider]: { ...providerUsage[data.provider], usage: data.usage }
+              ...cur,
+              [data.provider]: { ...cur[data.provider], usage: data.usage }
             });
           }
         } catch { /* silent */ }
@@ -204,15 +208,16 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
     fetchPage(currentPath);
   }, [location.pathname]);
 
-  // When pageCache updates (from preloading), check if current page is now available
+  // When pageCache updates (from preloading), always show current page if cached
   useEffect(() => {
     const cp = location.pathname;
-    if (!currentContent && pageCacheRef.current[cp]) {
-      setCurrentContent(pageCacheRef.current[cp]);
+    const cached = pageCacheRef.current[cp];
+    if (cached) {
+      setCurrentContent(cached);
       setError(null);
       setIsLoading(false);
     }
-  }, [pageCache]);
+  }, [pageCache, location.pathname]);
 
   // PostMessage navigation from iframes
   useEffect(() => {

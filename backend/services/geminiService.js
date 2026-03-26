@@ -6,6 +6,7 @@ class GeminiService {
   constructor(apiKey) {
     this.genAI = new GoogleGenAI({ apiKey });
     this.sessions = new Map();
+    this.inFlight = new Map(); // cacheKey → Promise, dedup concurrent requests
     // Self-tracked usage (Gemini doesn't return rate limit headers)
     this.usage = {
       requestsThisMinute: 0,
@@ -101,6 +102,19 @@ class GeminiService {
       return session.context.pageCache.get(cacheKey);
     }
 
+    // Dedup: if already generating this page, return the existing promise
+    if (this.inFlight.has(cacheKey)) {
+      console.log(`[inflight] dedup: ${path}`);
+      return this.inFlight.get(cacheKey);
+    }
+
+    const promise = this._doGeneratePage(sessionId, path, projectName, instructions, cacheKey, session);
+    this.inFlight.set(cacheKey, promise);
+    promise.finally(() => this.inFlight.delete(cacheKey));
+    return promise;
+  }
+
+  async _doGeneratePage(sessionId, path, projectName, instructions, cacheKey, session) {
     session.context.projectName = projectName;
     session.context.baseInstructions = instructions;
 

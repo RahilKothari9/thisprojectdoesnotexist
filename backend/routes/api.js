@@ -92,24 +92,6 @@ router.post('/generate',
   }
 );
 
-// Check if a page is cached
-router.get('/cached/:provider/:sessionId/:path(*)',
-  (req, res) => {
-    const { provider, sessionId } = req.params;
-    const path = '/' + (req.params.path || '');
-    const service = getProvider(provider);
-    const session = service.getSession(sessionId);
-    const cacheKey = `${path}:${session.context.projectName}`;
-
-    if (session.context.pageCache.has(cacheKey)) {
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.send(session.context.pageCache.get(cacheKey));
-    } else {
-      res.status(404).json({ cached: false });
-    }
-  }
-);
-
 // Get session info
 router.get('/session/:sessionId', (req, res) => {
   // Try both providers

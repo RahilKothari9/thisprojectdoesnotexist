@@ -7,6 +7,7 @@ class CerebrasService {
       baseURL: 'https://api.cerebras.ai/v1',
     });
     this.sessions = new Map();
+    this.inFlight = new Map();
     // Track rate limit info from response headers
     this.rateLimits = {
       requestsPerDay: { limit: 100, remaining: 100, reset: 0 },
@@ -87,6 +88,19 @@ class CerebrasService {
       return session.context.pageCache.get(cacheKey);
     }
 
+    // Dedup: if already generating this page, return the existing promise
+    if (this.inFlight.has(cacheKey)) {
+      console.log(`[cerebras][inflight] dedup: ${path}`);
+      return this.inFlight.get(cacheKey);
+    }
+
+    const promise = this._doGeneratePage(sessionId, path, projectName, instructions, cacheKey, session);
+    this.inFlight.set(cacheKey, promise);
+    promise.finally(() => this.inFlight.delete(cacheKey));
+    return promise;
+  }
+
+  async _doGeneratePage(sessionId, path, projectName, instructions, cacheKey, session) {
     session.context.projectName = projectName;
     session.context.baseInstructions = instructions;
 

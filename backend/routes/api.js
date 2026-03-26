@@ -37,7 +37,7 @@ router.get('/providers', (req, res) => {
     cerebras: {
       id: 'cerebras',
       name: 'Cerebras',
-      model: 'zai-glm-4.7',
+      model: 'qwen-3-235b',
       available: !!process.env.CEREBRAS_API_KEY,
       usage: {
         requestsPerDay: cerebrasLimits.requestsPerDay,

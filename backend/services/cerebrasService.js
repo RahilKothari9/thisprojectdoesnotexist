@@ -44,9 +44,10 @@ class CerebrasService {
       const headers = response?.headers;
       if (!headers) return;
 
+      // Headers object from OpenAI SDK withResponse() uses .get()
       const get = (name) => {
-        const val = headers[name] || headers.get?.(name);
-        return val ? parseInt(val, 10) : null;
+        const val = typeof headers.get === 'function' ? headers.get(name) : headers[name];
+        return val != null ? parseInt(val, 10) : null;
       };
 
       const reqLimit = get('x-ratelimit-limit-requests-day');
@@ -98,11 +99,11 @@ class CerebrasService {
       console.log(`[cerebras][generate] ${path} for ${projectName}`);
 
       const completion = await this.client.chat.completions.create({
-        model: 'zai-glm-4.7',
+        model: 'qwen-3-235b-a22b-instruct-2507',
         messages: [{ role: 'user', content: prompt }],
         max_completion_tokens: 16384,
         temperature: 0.9,
-        reasoning_effort: 'none',
+        // No reasoning_effort — not supported on qwen
       }).withResponse();
 
       // Extract headers for rate limit tracking

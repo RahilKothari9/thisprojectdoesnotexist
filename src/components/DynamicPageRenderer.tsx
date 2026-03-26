@@ -38,26 +38,33 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
   const activeRequests = useRef<Set<string>>(new Set());
   const preloadStarted = useRef(false);
   const providerRef = useRef(provider);
+  const currentPathRef = useRef(location.pathname);
+
+  // Keep refs in sync
+  useEffect(() => { providerRef.current = provider; }, [provider]);
+  useEffect(() => { currentPathRef.current = location.pathname; }, [location.pathname]);
 
   const handleInstructionsChange = (instructions: string) => {
     setCustomInstructions(instructions);
   };
-
-  // Keep ref in sync with prop
-  useEffect(() => { providerRef.current = provider; }, [provider]);
 
   const handleReset = () => {
     onReset?.();
     navigate('/');
   };
 
-  // Fetch a page from the backend (on-demand or initial)
+  // Fetch a page from the backend
   const fetchPage = async (path: string) => {
     if (pageCacheRef.current[path] || activeRequests.current.has(path)) return;
 
     activeRequests.current.add(path);
-    setIsLoading(true);
-    setError(null);
+
+    // Only show loading spinner if this is the page the user is currently viewing
+    const isCurrentPage = currentPathRef.current === path;
+    if (isCurrentPage) {
+      setIsLoading(true);
+      setError(null);
+    }
 
     try {
       const allInstructions = [projectConfig.instructions, customInstructions]
@@ -104,13 +111,13 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
           } catch { /* silent */ }
         }
 
-        if (location.pathname === path) {
+        // Show content if user is STILL on this path (check ref, not closure)
+        if (currentPathRef.current === path) {
           setCurrentContent(html);
           setError(null);
           setIsLoading(false);
         }
       } else if (response.status === 429) {
-        // Rate limited — update provider usage and show error
         try {
           const data = await response.json();
           if (data.usage) {
@@ -120,32 +127,38 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
             });
           }
         } catch { /* silent */ }
-        throw new Error('Rate limit exceeded. Try switching providers.');
+        if (currentPathRef.current === path) {
+          throw new Error('Rate limit exceeded. Try switching providers.');
+        }
       } else {
-        throw new Error(`Server error (${response.status})`);
+        if (currentPathRef.current === path) {
+          throw new Error(`Server error (${response.status})`);
+        }
       }
     } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        setError('Request timed out.');
-      } else {
-        setError(err instanceof Error ? err.message : 'Failed to generate page.');
+      // Only show errors for the page the user is currently on
+      if (currentPathRef.current === path) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          setError('Request timed out.');
+        } else {
+          setError(err instanceof Error ? err.message : 'Failed to generate page.');
+        }
+        setIsLoading(false);
       }
-      setIsLoading(false);
     } finally {
       activeRequests.current.delete(path);
-      if (!activeRequests.current.has(location.pathname)) {
+      // Clear loading only if no active request for the current page
+      if (!activeRequests.current.has(currentPathRef.current)) {
         setIsLoading(false);
       }
     }
   };
 
-  // Silent background preload — poll for cached pages after homepage loads
+  // Silent background preload
   const startPreloading = () => {
     if (preloadStarted.current) return;
     preloadStarted.current = true;
 
-    // Backend already kicked off preloading when homepage was generated.
-    // Poll for cached pages to pick them up silently.
     const sessionId = sessionStartTime.getTime();
     let remaining = [...PRELOAD_PAGES];
 
@@ -159,11 +172,6 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
             const html = await res.text();
             pageCacheRef.current[path] = html;
             setPageCache(prev => ({ ...prev, [path]: html }));
-            // If user navigated here while waiting, show it
-            if (location.pathname === path && !currentContent) {
-              setCurrentContent(html);
-              setIsLoading(false);
-            }
           } else {
             still.push(path);
           }
@@ -177,7 +185,6 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
       }
     };
 
-    // Start polling after a short delay to let backend get going
     setTimeout(poll, 3000);
   };
 
@@ -189,7 +196,6 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
       handleEndSession();
       return;
     }
-
     if (currentPath === '/export') return;
 
     if (!visitedPages.includes(currentPath)) {
@@ -211,9 +217,9 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
 
   // When pageCache updates (from preloading), check if current page is now available
   useEffect(() => {
-    const currentPath = location.pathname;
-    if (!currentContent && pageCacheRef.current[currentPath]) {
-      setCurrentContent(pageCacheRef.current[currentPath]);
+    const cp = location.pathname;
+    if (!currentContent && pageCacheRef.current[cp]) {
+      setCurrentContent(pageCacheRef.current[cp]);
       setError(null);
       setIsLoading(false);
     }
@@ -240,14 +246,9 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
   }, [navigate]);
 
   const handleEndSession = () => {
-    const sessionData = {
-      projectConfig,
-      visitedPages,
-      pageCache: pageCacheRef.current,
-      generationPrompts,
-      sessionStartTime
-    };
-    localStorage.setItem('exportSessionData', JSON.stringify(sessionData));
+    localStorage.setItem('exportSessionData', JSON.stringify({
+      projectConfig, visitedPages, pageCache: pageCacheRef.current, generationPrompts, sessionStartTime
+    }));
     navigate('/export');
   };
 
@@ -266,11 +267,9 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
       }
       case 'promptLog': {
         const log = [
-          "ThisProjectDoesNotExist - Generation Log",
-          "=".repeat(50),
+          "ThisProjectDoesNotExist - Generation Log", "=".repeat(50),
           `Project: ${sessionData.projectConfig.name}`,
           `Instructions: ${sessionData.projectConfig.instructions || "None"}`,
-          `Session Start: ${sessionData.sessionStartTime}`,
           "", "Prompts:", ...sessionData.generationPrompts,
           "", "Pages:", ...sessionData.visitedPages.map((p: string) => `- ${p}`),
         ].join("\n");
@@ -334,7 +333,6 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
                   />
                 ))}
               </div>
-
               <div className="bg-[#0a1018]/80 border border-[rgba(0,255,157,0.1)] rounded-lg px-5 py-3 mb-4 font-mono">
                 <span className="text-[#00ff9d]/40">fabricating </span>
                 <span className="text-[#c8d6e5]">
@@ -342,10 +340,7 @@ export function DynamicPageRenderer({ projectConfig, onReset, provider, onProvid
                 </span>
                 <span className="text-[#00ff9d] animate-[terminal-blink_0.8s_step-end_infinite] ml-0.5">_</span>
               </div>
-
-              <p className="text-[#4a6274] text-xs font-mono">
-                the ai is generating your page...
-              </p>
+              <p className="text-[#4a6274] text-xs font-mono">the ai is generating your page...</p>
             </div>
           </div>
         ) : error ? (

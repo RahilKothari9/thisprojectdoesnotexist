@@ -19,19 +19,12 @@ router.post('/generate',
     console.log(`[api] generate: ${path} for ${project}`);
 
     try {
-      const session = geminiService.getSession(sessionId.toString());
-
-      // Ensure design system exists (generates on first call, cached after)
-      const designCSS = await geminiService.generateDesignSystem(
-        sessionId.toString(), project, instructions
-      );
-
-      // Generate the requested page
+      // Single call — generates page. First page also establishes design system.
       const html = await geminiService.generatePage(
-        sessionId.toString(), path, project, instructions, designCSS
+        sessionId.toString(), path, project, instructions
       );
 
-      // After homepage, silently preload the other 4 pages in background
+      // After homepage, silently preload the other 4 nav pages in background
       if (path === '/') {
         geminiService.preloadPages(sessionId.toString(), project, instructions);
       }

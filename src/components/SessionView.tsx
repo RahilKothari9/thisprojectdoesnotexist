@@ -1,27 +1,42 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, Power, Navigation, X } from "lucide-react";
+import { ArrowRight, X, ChevronDown, ChevronUp, Power, Navigation, FileText } from "lucide-react";
 
 interface SessionViewProps {
   projectName: string;
   visitedPages: string[];
   onEndSession: () => void;
+  onInstructionsChange?: (instructions: string) => void;
+  initialInstructions?: string;
   isLoading?: boolean;
   onReset?: () => void;
-  pageCache: { [path: string]: string };
-  sitePages: string[];
 }
 
-export function SessionView({ projectName, visitedPages, onEndSession, isLoading = false, onReset, pageCache, sitePages }: SessionViewProps) {
+export function SessionView({ projectName, visitedPages, onEndSession, onInstructionsChange, initialInstructions = "", isLoading = false, onReset }: SessionViewProps) {
+  const [customUrl, setCustomUrl] = useState("");
+  const [customInstructions, setCustomInstructions] = useState(initialInstructions);
   const [isExpanded, setIsExpanded] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const handleQuickNav = (path: string) => {
-    if (pageCache[path]) {
-      navigate(path);
+  const handleNavigateToUrl = () => {
+    if (customUrl.trim()) {
+      const url = customUrl.startsWith('/') ? customUrl : `/${customUrl}`;
+      navigate(url);
+      setCustomUrl("");
     }
+  };
+
+  const handleQuickNav = (url: string) => {
+    navigate(url);
+  };
+
+  const handleInstructionsChange = (value: string) => {
+    setCustomInstructions(value);
+    onInstructionsChange?.(value);
   };
 
   return (
@@ -32,12 +47,26 @@ export function SessionView({ projectName, visitedPages, onEndSession, isLoading
           {/* Expanded panel */}
           {isExpanded && (
             <div className="p-4 border-b border-[rgba(0,255,157,0.08)] animate-[fade-in_0.2s_ease-out] space-y-4">
+              {/* Instructions */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-[#4a6274] font-mono uppercase tracking-wider flex items-center gap-1.5">
+                  <FileText className="w-3 h-3" />
+                  instructions
+                </label>
+                <Textarea
+                  value={customInstructions}
+                  onChange={(e) => handleInstructionsChange(e.target.value)}
+                  placeholder="guide the ai on how to generate pages..."
+                  className="min-h-[60px] text-xs bg-[#0f1923]/60 border-[rgba(0,255,157,0.1)] text-[#c8d6e5] placeholder:text-[#4a6274]/40 focus:border-[#00ff9d]/30 resize-none font-mono"
+                />
+              </div>
+
               {/* Visited pages */}
               {visitedPages.length > 0 && (
                 <div className="space-y-1.5">
                   <span className="text-[10px] text-[#4a6274] font-mono uppercase tracking-wider flex items-center gap-1.5">
                     <Navigation className="w-3 h-3" />
-                    visited ({visitedPages.length})
+                    pages ({visitedPages.length})
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {visitedPages.map((page, index) => {
@@ -86,7 +115,7 @@ export function SessionView({ projectName, visitedPages, onEndSession, isLoading
             </div>
           )}
 
-          {/* Main bar — page navigation chips */}
+          {/* Main bar */}
           <div className="flex items-center gap-2 p-3">
             {/* Project indicator */}
             <button
@@ -98,34 +127,27 @@ export function SessionView({ projectName, visitedPages, onEndSession, isLoading
               {isExpanded ? <ChevronDown className="w-3 h-3 text-[#4a6274]" /> : <ChevronUp className="w-3 h-3 text-[#4a6274]" />}
             </button>
 
-            {/* Page nav chips */}
-            <div className="flex-1 flex items-center gap-1.5 overflow-x-auto">
-              {sitePages.map(path => {
-                const isReady = !!pageCache[path];
-                const isActive = location.pathname === path;
-                const label = path === '/' ? 'home' : path.replace('/', '');
-
-                return (
-                  <button
-                    key={path}
-                    onClick={() => handleQuickNav(path)}
-                    disabled={!isReady}
-                    className={`px-3 py-1.5 text-xs font-mono rounded-lg transition-all duration-200 whitespace-nowrap ${
-                      isActive
-                        ? 'bg-[#00ff9d]/15 text-[#00ff9d] border border-[#00ff9d]/30'
-                        : isReady
-                          ? 'bg-[#0f1923]/60 text-[#c8d6e5] border border-transparent hover:bg-[#0f1923] hover:border-[rgba(0,255,157,0.15)]'
-                          : 'bg-[#0f1923]/30 text-[#4a6274]/40 border border-transparent cursor-not-allowed'
-                    }`}
-                  >
-                    {!isReady && (
-                      <span className="inline-block w-1 h-1 rounded-full bg-[#ffd700] animate-pulse mr-1.5 align-middle" />
-                    )}
-                    {label}
-                  </button>
-                );
-              })}
+            {/* URL input */}
+            <div className="flex-1 relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#00ff9d]/30 font-mono text-sm">/</span>
+              <Input
+                value={customUrl}
+                onChange={(e) => setCustomUrl(e.target.value)}
+                placeholder="navigate to any path..."
+                className="pl-6 h-9 text-sm bg-[#0f1923]/40 border-[rgba(0,255,157,0.08)] text-[#c8d6e5] placeholder:text-[#4a6274]/40 focus:border-[#00ff9d]/30 font-mono"
+                onKeyDown={(e) => e.key === 'Enter' && handleNavigateToUrl()}
+              />
             </div>
+
+            {/* Navigate button */}
+            <Button
+              onClick={handleNavigateToUrl}
+              size="sm"
+              disabled={!customUrl.trim()}
+              className="h-9 px-3 bg-[#00ff9d]/10 border border-[#00ff9d]/20 text-[#00ff9d] hover:bg-[#00ff9d]/20 disabled:opacity-20 transition-all duration-200"
+            >
+              <ArrowRight className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </div>

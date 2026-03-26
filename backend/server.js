@@ -29,13 +29,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// Skip compression for SSE (event-stream) to avoid buffering
-app.use(compression({
-  filter: (req, res) => {
-    if (res.getHeader('Content-Type') === 'text/event-stream') return false;
-    return compression.filter(req, res);
-  }
-}));
+app.use(compression());
 app.use(requestLogger);
 app.use(securityHeaders);
 
@@ -87,7 +81,8 @@ app.get('/', (req, res) => {
     description: 'AI-powered dynamic page generation service',
     endpoints: {
       health: '/api/health',
-      generateSite: 'POST /api/generate-site',
+      generate: 'POST /api/generate',
+      cached: 'GET /api/cached/:sessionId/:path',
       sessionInfo: 'GET /api/session/:sessionId'
     },
     documentation: 'https://github.com/your-repo/thisprojectdoesnotexist',

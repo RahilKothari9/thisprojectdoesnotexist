@@ -1,13 +1,7 @@
 // Vercel serverless function entry point
-// Wraps the Express app for modern Vercel deployment with proper timeout support
 let app;
 
 export const maxDuration = 60;
-
-// Enable response streaming for SSE support on Vercel
-export const config = {
-  supportsResponseStreaming: true,
-};
 
 export default async function handler(req, res) {
   if (!app) {
